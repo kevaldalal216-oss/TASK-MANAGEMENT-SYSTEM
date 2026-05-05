@@ -57,7 +57,25 @@ export function TaskProvider({ children }) {
       })
       .subscribe()
 
-    return () => supabase.removeChannel(channel)
+    const deptChannel = supabase
+      .channel('departments-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'departments' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setDepartments(prev => prev.some(d => d.id === payload.new.id) ? prev : [...prev, payload.new])
+        }
+        if (payload.eventType === 'UPDATE') {
+          setDepartments(prev => prev.map(d => d.id === payload.new.id ? payload.new : d))
+        }
+        if (payload.eventType === 'DELETE') {
+          setDepartments(prev => prev.filter(d => d.id !== payload.old.id))
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+      supabase.removeChannel(deptChannel)
+    }
   }, [user])
 
   // The .select(...).single() chain returns the inserted/updated row WITH
@@ -133,8 +151,19 @@ export function TaskProvider({ children }) {
     await renumberTasks()
   }
 
+  async function createDepartment(data) {
+    const { data: inserted, error } = await supabase
+      .from('departments')
+      .insert(data)
+      .select('*')
+      .single()
+    if (error) throw error
+    setDepartments(prev => [...prev, inserted])
+    return inserted
+  }
+
   return (
-    <TaskContext.Provider value={{ tasks, departments, profiles, loading, createTask, updateTask, deleteTask }}>
+    <TaskContext.Provider value={{ tasks, departments, profiles, loading, createTask, updateTask, deleteTask, createDepartment }}>
       {children}
     </TaskContext.Provider>
   )

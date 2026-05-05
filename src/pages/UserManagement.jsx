@@ -25,6 +25,8 @@ const ROLE_BADGE = {
   user:        { label: 'User',        color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' },
 }
 
+const adminRoles = ['super_admin', 'admin']
+
 function initialsOf(name) {
   if (!name) return '?'
   return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
@@ -32,11 +34,12 @@ function initialsOf(name) {
 
 export default function UserManagement() {
   const { role: myRole, user: me } = useAuth()
-  const { departments } = useTasks()
+  const { departments, createDepartment } = useTasks()
   const { showToast } = useToast()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null) // null | { mode: 'create'|'edit', user?: {} }
+  const [deptModal, setDeptModal] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   async function loadUsers() {
@@ -101,9 +104,16 @@ export default function UserManagement() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-headline)' }}>Team Members</h3>
-          <Button variant="primary" size="sm" onClick={() => setModal({ mode: 'create' })}>
-            <Plus size={14} /> Add User
-          </Button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {adminRoles.includes(myRole) && (
+              <Button variant="secondary" size="sm" onClick={() => setDeptModal(true)}>
+                <Plus size={14} /> Add Department
+              </Button>
+            )}
+            <Button variant="primary" size="sm" onClick={() => setModal({ mode: 'create' })}>
+              <Plus size={14} /> Add User
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -261,6 +271,13 @@ export default function UserManagement() {
           </div>
         </Modal>
       )}
+
+      {deptModal && (
+        <DepartmentModal
+          isOpen={deptModal}
+          onClose={() => setDeptModal(false)}
+        />
+      )}
     </div>
   )
 }
@@ -376,6 +393,56 @@ function UserModal({ mode, user, departments, myRole, onClose }) {
           <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
           <Button variant="primary" type="submit" disabled={saving}>
             {saving ? 'Saving…' : mode === 'create' ? 'Create User' : 'Save'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function DepartmentModal({ isOpen, onClose }) {
+  const { departments, createDepartment } = useTasks()
+  const { showToast } = useToast()
+  const [form, setForm] = useState({ name: '' })
+  const [saving, setSaving] = useState(false)
+
+  function set(k, v) { setForm(p => ({ ...p, [k]: v })) }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const name = form.name.trim()
+    if (!name) {
+      showToast('Department name cannot be empty', 'error')
+      return
+    }
+    if (departments.some(d => d.name.toLowerCase() === name.toLowerCase())) {
+      showToast('Department name already exists', 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      await createDepartment({ name })
+      showToast('Department created successfully')
+      setForm({ name: '' })
+      onClose()
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={isOpen} title="Add Department" onClose={onClose} maxWidth={400}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Field label="Department Name" required>
+          <input type="text" required value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle} />
+        </Field>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" disabled={saving}>
+            {saving ? 'Creating…' : 'Create Department'}
           </Button>
         </div>
       </form>
