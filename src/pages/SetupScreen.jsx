@@ -45,7 +45,11 @@ export default function SetupScreen() {
           border: '1px solid var(--border-light)',
         }}>
 {`VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here`}
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key-here
+
+# or, if you use React-style env names:
+REACT_APP_SUPABASE_URL=https://your-project.supabase.co
+REACT_APP_SUPABASE_PUBLISHABLE_KEY=your-publishable-key-here`}
         </pre>
 
         <ol start={3} style={{ fontSize: 14, color: 'var(--text-secondary)', paddingLeft: 20, lineHeight: 1.8 }}>

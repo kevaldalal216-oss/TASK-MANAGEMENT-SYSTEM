@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, supabasePublishableKey, supabaseUrl } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Topbar from '../components/Layout/Topbar'
@@ -14,8 +14,8 @@ import { useTasks } from '../context/TaskContext'
 // signed-in admin's session on the main client stays intact when we create a
 // new auth user.
 const signupClient = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl,
+  supabasePublishableKey,
   { auth: { persistSession: false, autoRefreshToken: false } }
 )
 
