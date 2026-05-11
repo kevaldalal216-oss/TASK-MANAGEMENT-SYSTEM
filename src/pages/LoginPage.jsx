@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, ShieldCheck, Activity, Users } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -11,7 +11,7 @@ const appUrl =
   import.meta.env.VITE_SITE_URL ||
   import.meta.env.VITE_APP_URL ||
   ''
-const resetCooldownMs = 60 * 1000
+const resetCooldownMs = 10 * 60 * 1000
 const resetRateLimitCooldownMs = 10 * 60 * 1000
 const resetCooldownStoragePrefix = 'password-reset-cooldown-until:'
 
@@ -26,6 +26,18 @@ export default function LoginPage() {
   const [resetLoading, setResetLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [lastResetSentAt, setLastResetSentAt] = useState(0)
+  const [resetCooldownUntil, setResetCooldownUntilState] = useState(0)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const recoveryEmail = email.trim()
+    setResetCooldownUntilState(recoveryEmail ? getResetCooldownUntil(recoveryEmail) : 0)
+  }, [email])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -69,19 +81,26 @@ export default function LoginPage() {
 
     if (!error) {
       setLastResetSentAt(Date.now())
-      setResetCooldownUntil(recoveryEmail, Date.now() + resetCooldownMs)
+      const nextCooldownUntil = Date.now() + resetCooldownMs
+      setResetCooldownUntil(recoveryEmail, nextCooldownUntil)
+      setResetCooldownUntilState(nextCooldownUntil)
       setResetSent(true)
     } else {
       const isRateLimit = error.message?.toLowerCase().includes('rate limit')
       if (isRateLimit) {
-        setResetCooldownUntil(recoveryEmail, Date.now() + resetRateLimitCooldownMs)
+        const nextCooldownUntil = Date.now() + resetRateLimitCooldownMs
+        setResetCooldownUntil(recoveryEmail, nextCooldownUntil)
+        setResetCooldownUntilState(nextCooldownUntil)
       }
       const message = isRateLimit
-        ? 'Too many reset emails were requested. Please wait a few minutes, then try again.'
+        ? `Too many reset emails were requested. Please wait ${formatWaitTime(resetRateLimitCooldownMs)}, then try again.`
         : error.message
       setError(message)
     }
   }
+
+  const resetWaitMs = Math.max(resetCooldownUntil, lastResetSentAt + resetCooldownMs) - now
+  const isResetCoolingDown = resetWaitMs > 0
 
   return (
     <div style={{
@@ -249,17 +268,21 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  disabled={resetLoading}
+                  disabled={resetLoading || isResetCoolingDown}
                   style={{
                     fontSize: 12, fontWeight: 600,
                     color: 'var(--primary)',
                     background: 'none', border: 'none',
-                    cursor: resetLoading ? 'not-allowed' : 'pointer',
-                    opacity: resetLoading ? 0.65 : 1,
+                    cursor: resetLoading || isResetCoolingDown ? 'not-allowed' : 'pointer',
+                    opacity: resetLoading || isResetCoolingDown ? 0.65 : 1,
                     padding: 0,
                   }}
                 >
-                  {resetLoading ? 'Sending...' : 'Forgot password?'}
+                  {resetLoading
+                    ? 'Sending...'
+                    : isResetCoolingDown
+                      ? `Wait ${formatWaitTime(resetWaitMs)}`
+                      : 'Forgot password?'}
                 </button>
               </div>
               <div style={{ position: 'relative' }}>
