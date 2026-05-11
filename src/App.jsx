@@ -61,7 +61,9 @@ export default function App() {
           <Route path="/gantt"         element={<GanttChart />} />
           <Route path="/notifications" element={<Notifications />} />
 
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={
+            <RequireAdmin><Dashboard /></RequireAdmin>
+          } />
           <Route path="/audit" element={
             <RequireAdmin><AuditLog /></RequireAdmin>
           } />
