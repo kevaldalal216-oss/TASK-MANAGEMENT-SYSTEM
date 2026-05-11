@@ -12,6 +12,8 @@ const appUrl =
   import.meta.env.VITE_APP_URL ||
   window.location.origin
 const resetCooldownMs = 60 * 1000
+const resetRateLimitCooldownMs = 10 * 60 * 1000
+const resetCooldownStoragePrefix = 'password-reset-cooldown-until:'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -43,9 +45,11 @@ export default function LoginPage() {
     const recoveryEmail = email.trim()
     if (!recoveryEmail) { setError('Enter your email above first'); return }
 
-    const remainingCooldown = resetCooldownMs - (Date.now() - lastResetSentAt)
+    const cooldownUntil = getResetCooldownUntil(recoveryEmail)
+    const localCooldownUntil = lastResetSentAt + resetCooldownMs
+    const remainingCooldown = Math.max(cooldownUntil, localCooldownUntil) - Date.now()
     if (remainingCooldown > 0) {
-      setError(`Please wait ${Math.ceil(remainingCooldown / 1000)} seconds before requesting another reset email.`)
+      setError(`Please wait ${formatWaitTime(remainingCooldown)} before requesting another reset email.`)
       return
     }
 
@@ -59,9 +63,14 @@ export default function LoginPage() {
 
     if (!error) {
       setLastResetSentAt(Date.now())
+      setResetCooldownUntil(recoveryEmail, Date.now() + resetCooldownMs)
       setResetSent(true)
     } else {
-      const message = error.message?.toLowerCase().includes('rate limit')
+      const isRateLimit = error.message?.toLowerCase().includes('rate limit')
+      if (isRateLimit) {
+        setResetCooldownUntil(recoveryEmail, Date.now() + resetRateLimitCooldownMs)
+      }
+      const message = isRateLimit
         ? 'Too many reset emails were requested. Please wait a few minutes, then try again.'
         : error.message
       setError(message)
@@ -313,6 +322,29 @@ export default function LoginPage() {
       `}</style>
     </div>
   )
+}
+
+function getResetCooldownUntil(email) {
+  try {
+    return Number(window.localStorage.getItem(`${resetCooldownStoragePrefix}${email.toLowerCase()}`)) || 0
+  } catch (_) {
+    return 0
+  }
+}
+
+function setResetCooldownUntil(email, timestamp) {
+  try {
+    window.localStorage.setItem(`${resetCooldownStoragePrefix}${email.toLowerCase()}`, String(timestamp))
+  } catch (_) {
+    // Ignore storage failures; Supabase still enforces the real rate limit.
+  }
+}
+
+function formatWaitTime(ms) {
+  const seconds = Math.ceil(ms / 1000)
+  if (seconds < 60) return `${seconds} seconds`
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
 }
 
 const labelStyle = {
