@@ -5,6 +5,13 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import Button from '../components/common/Button'
 
+const appUrl =
+  import.meta.env.REACT_APP_SITE_URL ||
+  import.meta.env.REACT_APP_APP_URL ||
+  import.meta.env.VITE_SITE_URL ||
+  import.meta.env.VITE_APP_URL ||
+  window.location.origin
+
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -38,7 +45,7 @@ export default function LoginPage() {
     setResetSent(false)
     setResetLoading(true)
     const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${appUrl.replace(/\/$/, '')}/reset-password`,
     })
     setResetLoading(false)
 
