@@ -7,7 +7,7 @@ import {
 import { Doughnut, Bar } from 'react-chartjs-2'
 import {
   ListTodo, CheckCircle2, PlayCircle, PauseCircle, AlertCircle,
-  ArrowRight, TrendingUp, Clock, CircleDashed, Building2, UsersRound,
+  ArrowRight, TrendingUp, Clock, CircleDashed,
 } from 'lucide-react'
 import { useTasks } from '../context/TaskContext'
 import { useAuth } from '../context/AuthContext'
@@ -160,55 +160,6 @@ export default function Dashboard() {
     [tasks]
   )
 
-  const teamProgressRows = useMemo(() => {
-    const rows = departments.map(department => {
-      const teamTasks = tasks.filter(t => t.department_id === department.id)
-      const total = teamTasks.length
-      const completed = teamTasks.filter(t => t.status === 'completed').length
-      const inProgress = teamTasks.filter(t => t.status === 'in_progress').length
-      const continuous = teamTasks.filter(t => t.status === 'continuous').length
-      const hold = teamTasks.filter(t => t.status === 'hold').length
-      const notStarted = teamTasks.filter(t => t.status === 'not_started').length
-      const overdue = teamTasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length
-      const activeMembers = profiles.filter(p => p.department_id === department.id && p.status !== 'inactive').length
-      const progress = total ? Math.round((completed / total) * 100) : 0
-
-      return {
-        id: department.id,
-        name: department.name,
-        total,
-        completed,
-        inProgress,
-        continuous,
-        hold,
-        notStarted,
-        overdue,
-        activeMembers,
-        progress,
-      }
-    })
-
-    const unassignedTasks = tasks.filter(t => !t.department_id)
-    if (unassignedTasks.length) {
-      const completed = unassignedTasks.filter(t => t.status === 'completed').length
-      rows.push({
-        id: 'unassigned',
-        name: 'Unassigned',
-        total: unassignedTasks.length,
-        completed,
-        inProgress: unassignedTasks.filter(t => t.status === 'in_progress').length,
-        continuous: unassignedTasks.filter(t => t.status === 'continuous').length,
-        hold: unassignedTasks.filter(t => t.status === 'hold').length,
-        notStarted: unassignedTasks.filter(t => t.status === 'not_started').length,
-        overdue: unassignedTasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length,
-        activeMembers: 0,
-        progress: Math.round((completed / unassignedTasks.length) * 100),
-      })
-    }
-
-    return rows.sort((a, b) => b.progress - a.progress || b.total - a.total || a.name.localeCompare(b.name))
-  }, [departments, profiles, tasks, today])
-
   const statCards = [
     { label: 'Total Tasks',  value: kpis.total,       Icon: ListTodo,     color: '#2563eb', bg: '#eff6ff', status: null,           accent: 'var(--primary)' },
     { label: 'Completed',    value: kpis.completed,   Icon: CheckCircle2, color: '#059669', bg: '#ecfdf5', status: 'completed',    accent: '#10b981' },
@@ -225,13 +176,6 @@ export default function Dashboard() {
       department_id: String(departmentId),
     })
     if (heatmapEmployee) params.set('owner_id', heatmapEmployee)
-    navigate(`/tasks?${params.toString()}`)
-  }
-
-  function openTeamTasks(teamId, status) {
-    const params = new URLSearchParams({ tab: 'all' })
-    if (teamId !== 'unassigned') params.set('department_id', String(teamId))
-    if (status) params.set('status', status)
     navigate(`/tasks?${params.toString()}`)
   }
 
@@ -366,126 +310,6 @@ export default function Dashboard() {
             )}
           </div>
         ))}
-      </div>
-
-      {/* Team Progress */}
-      <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', marginBottom: 24 }}>
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid var(--outline-variant)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: 'var(--primary-container)',
-              color: 'var(--primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Building2 size={17} />
-            </div>
-            <div>
-              <h3 style={{ ...sectionTitle, marginBottom: 2 }}>Team Progress</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Department-wise completion, blockers, and workload.</p>
-            </div>
-          </div>
-          <span style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: 'var(--text-secondary)',
-            background: 'var(--surface-container-low)',
-            border: '1px solid var(--outline-variant)',
-            borderRadius: 'var(--radius-badge)',
-            padding: '5px 10px',
-          }}>
-            {teamProgressRows.length} team{teamProgressRows.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-
-        {teamProgressRows.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, padding: '24px 20px', textAlign: 'center' }}>
-            No teams or tasks available yet.
-          </p>
-        ) : (
-          <div style={teamProgressGridStyle}>
-            {teamProgressRows.map(team => (
-              <div key={team.id} style={teamProgressCardStyle}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <h4 style={{
-                      fontSize: 14,
-                      fontWeight: 800,
-                      color: 'var(--on-surface)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      marginBottom: 4,
-                    }}>
-                      {team.name}
-                    </h4>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 11, fontWeight: 600 }}>
-                      <UsersRound size={12} /> {team.activeMembers} active member{team.activeMembers !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                  <div style={{
-                    minWidth: 54,
-                    textAlign: 'right',
-                    color: progressTone(team.progress),
-                    fontSize: 22,
-                    lineHeight: 1,
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-headline)',
-                  }}>
-                    {team.progress}%
-                  </div>
-                </div>
-
-                <div style={{ height: 8, background: 'var(--surface-container)', borderRadius: 999, overflow: 'hidden', marginBottom: 12 }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${team.progress}%`,
-                    background: progressTone(team.progress),
-                    borderRadius: 999,
-                  }} />
-                </div>
-
-                <div style={teamMetricGridStyle}>
-                  <TeamMetric label="Total" value={team.total} />
-                  <TeamMetric label="Done" value={team.completed} color="var(--success)" />
-                  <TeamMetric label="Active" value={team.inProgress + team.continuous} color="var(--primary)" />
-                  <TeamMetric label="Hold" value={team.hold} color="var(--warning)" />
-                  <TeamMetric label="Pending" value={team.notStarted} />
-                  <TeamMetric label="Overdue" value={team.overdue} color="var(--danger)" />
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button
-                    type="button"
-                    onClick={() => openTeamTasks(team.id)}
-                    style={teamActionStyle}
-                  >
-                    All tasks
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openTeamTasks(team.id, 'completed')}
-                    style={{ ...teamActionStyle, color: 'var(--success)', borderColor: 'var(--success-border)', background: 'var(--success-bg)' }}
-                  >
-                    Completed
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Charts */}
@@ -738,32 +562,8 @@ function MiniTable({ title, rows, emptyText, accent, accentBg, chip }) {
   )
 }
 
-function TeamMetric({ label, value, color = 'var(--text-primary)' }) {
-  return (
-    <div style={{
-      background: 'var(--surface-container-low)',
-      border: '1px solid var(--outline-variant)',
-      borderRadius: 6,
-      padding: '8px 10px',
-      minWidth: 0,
-    }}>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: 17, color, fontWeight: 800, fontFamily: 'var(--font-headline)', lineHeight: 1.15, marginTop: 3 }}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
 function Loader() {
   return <div style={{ padding: 40, color: 'var(--text-muted)' }}>Loading…</div>
-}
-
-function progressTone(progress) {
-  if (progress >= 80) return '#059669'
-  if (progress >= 50) return '#2563eb'
-  if (progress >= 25) return '#f59e0b'
-  return '#ef4444'
 }
 
 const cardStyle = {
@@ -791,34 +591,6 @@ const teamSelectStyle = {
   fontWeight: 500,
   outline: 'none',
   cursor: 'pointer',
-}
-const teamProgressGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-  gap: 14,
-  padding: 16,
-}
-const teamProgressCardStyle = {
-  border: '1px solid var(--outline-variant)',
-  borderRadius: 8,
-  background: '#fff',
-  padding: 16,
-  boxShadow: 'var(--shadow-soft)',
-}
-const teamMetricGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: 8,
-}
-const teamActionStyle = {
-  flex: 1,
-  height: 34,
-  border: '1px solid var(--outline-variant)',
-  borderRadius: 7,
-  background: '#fff',
-  color: 'var(--primary)',
-  fontSize: 12,
-  fontWeight: 700,
 }
 const heatmapLegendStyle = {
   display: 'flex',
