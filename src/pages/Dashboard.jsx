@@ -29,6 +29,7 @@ const STATUS_LABELS = {
 }
 
 const DOUGHNUT_STATUSES = ['completed', 'in_progress', 'continuous', 'hold', 'not_started']
+const adminRoles = ['super_admin', 'admin']
 
 const doughnutPercentLabels = {
   id: 'doughnutPercentLabels',
@@ -67,11 +68,29 @@ function greeting() {
 
 export default function Dashboard() {
   const { tasks, departments, profiles, loading } = useTasks()
-  const { profile } = useAuth()
+  const { profile, role } = useAuth()
   const navigate = useNavigate()
   const [selectedTeam, setSelectedTeam] = useState('')
   const [heatmapDepartment, setHeatmapDepartment] = useState('')
   const [heatmapEmployee, setHeatmapEmployee] = useState('')
+  const isAdmin = adminRoles.includes(role)
+  const departmentId = profile?.department_id ?? null
+  const ownDepartment = departments.find(d => d.id === departmentId)
+
+  const dashboardDepartments = useMemo(() =>
+    isAdmin ? departments : departments.filter(d => d.id === departmentId),
+    [departments, departmentId, isAdmin]
+  )
+
+  const dashboardTasks = useMemo(() =>
+    isAdmin ? tasks : tasks.filter(t => t.department_id === departmentId),
+    [tasks, departmentId, isAdmin]
+  )
+
+  const dashboardProfiles = useMemo(() =>
+    isAdmin ? profiles : profiles.filter(p => p.department_id === departmentId),
+    [profiles, departmentId, isAdmin]
+  )
 
   const today = new Date().toISOString().slice(0, 10)
   const dateString = new Date().toLocaleDateString('en-US', {
@@ -79,21 +98,21 @@ export default function Dashboard() {
   })
 
   const kpis = useMemo(() => {
-    const total = tasks.length
-    const completed = tasks.filter(t => t.status === 'completed').length
-    const in_progress = tasks.filter(t => t.status === 'in_progress').length
-    const hold = tasks.filter(t => t.status === 'hold').length
-    const overdue = tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length
-    const dueToday = tasks.filter(t => t.end_date === today && t.status !== 'completed').length
-    const not_started = tasks.filter(t => t.status === 'not_started').length
+    const total = dashboardTasks.length
+    const completed = dashboardTasks.filter(t => t.status === 'completed').length
+    const in_progress = dashboardTasks.filter(t => t.status === 'in_progress').length
+    const hold = dashboardTasks.filter(t => t.status === 'hold').length
+    const overdue = dashboardTasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length
+    const dueToday = dashboardTasks.filter(t => t.end_date === today && t.status !== 'completed').length
+    const not_started = dashboardTasks.filter(t => t.status === 'not_started').length
     return { total, completed, in_progress, hold, overdue, dueToday, not_started }
-  }, [tasks, today])
+  }, [dashboardTasks, today])
 
   const completionPct = kpis.total ? Math.round((kpis.completed / kpis.total) * 100) : 0
 
   const statusBreakdownTasks = useMemo(() =>
-    selectedTeam ? tasks.filter(t => String(t.department_id) === selectedTeam) : tasks,
-    [tasks, selectedTeam]
+    isAdmin && selectedTeam ? dashboardTasks.filter(t => String(t.department_id) === selectedTeam) : dashboardTasks,
+    [dashboardTasks, isAdmin, selectedTeam]
   )
 
   const doughnutData = useMemo(() => {
@@ -111,29 +130,29 @@ export default function Dashboard() {
 
   const barData = useMemo(() => {
     const statuses = ['completed', 'in_progress', 'continuous', 'hold', 'not_started']
-    const deptNames = departments.map(d => d.name)
+    const deptNames = dashboardDepartments.map(d => d.name)
     return {
       labels: deptNames,
       datasets: statuses.map(s => ({
         label: STATUS_LABELS[s],
-        data: departments.map(d => tasks.filter(t => t.department_id === d.id && t.status === s).length),
+        data: dashboardDepartments.map(d => dashboardTasks.filter(t => t.department_id === d.id && t.status === s).length),
         backgroundColor: STATUS_COLORS[s],
         borderRadius: 4,
         borderSkipped: false,
       })),
     }
-  }, [tasks, departments])
+  }, [dashboardTasks, dashboardDepartments])
 
   const heatmapEmployees = useMemo(() =>
-    profiles.filter(p => !heatmapDepartment || String(p.department_id) === heatmapDepartment),
-    [profiles, heatmapDepartment]
+    dashboardProfiles.filter(p => !heatmapDepartment || String(p.department_id) === heatmapDepartment),
+    [dashboardProfiles, heatmapDepartment]
   )
 
   const heatmapRows = useMemo(() =>
-    departments
-      .filter(d => !heatmapDepartment || String(d.id) === heatmapDepartment)
+    dashboardDepartments
+      .filter(d => !isAdmin || !heatmapDepartment || String(d.id) === heatmapDepartment)
       .map(department => {
-        const count = tasks.filter(t =>
+        const count = dashboardTasks.filter(t =>
           t.status === 'in_progress'
           && t.department_id === department.id
           && (!heatmapEmployee || t.owner_id === heatmapEmployee)
@@ -145,24 +164,24 @@ export default function Dashboard() {
           tone: count >= 12 ? 'high' : count >= 8 ? 'medium' : 'low',
         }
       }),
-    [departments, tasks, heatmapDepartment, heatmapEmployee]
+    [dashboardDepartments, dashboardTasks, heatmapDepartment, heatmapEmployee, isAdmin]
   )
 
   const overdueRows = useMemo(() =>
-    tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed')
+    dashboardTasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed')
       .sort((a, b) => a.end_date.localeCompare(b.end_date))
       .slice(0, 6),
-    [tasks, today]
+    [dashboardTasks, today]
   )
 
   const holdRows = useMemo(() =>
-    tasks.filter(t => t.status === 'hold').slice(0, 6),
-    [tasks]
+    dashboardTasks.filter(t => t.status === 'hold').slice(0, 6),
+    [dashboardTasks]
   )
 
   const teamProgressRows = useMemo(() => {
-    const rows = departments.map(department => {
-      const teamTasks = tasks.filter(t => t.department_id === department.id)
+    const rows = dashboardDepartments.map(department => {
+      const teamTasks = dashboardTasks.filter(t => t.department_id === department.id)
       const total = teamTasks.length
       const completed = teamTasks.filter(t => t.status === 'completed').length
       const inProgress = teamTasks.filter(t => t.status === 'in_progress').length
@@ -170,7 +189,7 @@ export default function Dashboard() {
       const hold = teamTasks.filter(t => t.status === 'hold').length
       const notStarted = teamTasks.filter(t => t.status === 'not_started').length
       const overdue = teamTasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length
-      const activeMembers = profiles.filter(p => p.department_id === department.id && p.status !== 'inactive').length
+      const activeMembers = dashboardProfiles.filter(p => p.department_id === department.id && p.status !== 'inactive').length
       const progress = total ? Math.round((completed / total) * 100) : 0
 
       return {
@@ -188,8 +207,8 @@ export default function Dashboard() {
       }
     })
 
-    const unassignedTasks = tasks.filter(t => !t.department_id)
-    if (unassignedTasks.length) {
+    const unassignedTasks = dashboardTasks.filter(t => !t.department_id)
+    if (isAdmin && unassignedTasks.length) {
       const completed = unassignedTasks.filter(t => t.status === 'completed').length
       rows.push({
         id: 'unassigned',
@@ -207,7 +226,7 @@ export default function Dashboard() {
     }
 
     return rows.sort((a, b) => b.progress - a.progress || b.total - a.total || a.name.localeCompare(b.name))
-  }, [departments, profiles, tasks, today])
+  }, [dashboardDepartments, dashboardProfiles, dashboardTasks, isAdmin, today])
 
   const statCards = [
     { label: 'Total Tasks',  value: kpis.total,       Icon: ListTodo,     color: '#2563eb', bg: '#eff6ff', status: null,           accent: 'var(--primary)' },
@@ -220,7 +239,7 @@ export default function Dashboard() {
 
   function openHeatmapTasks(departmentId) {
     const params = new URLSearchParams({
-      tab: 'all',
+      tab: isAdmin ? 'all' : 'dept',
       status: 'in_progress',
       department_id: String(departmentId),
     })
@@ -229,13 +248,34 @@ export default function Dashboard() {
   }
 
   function openTeamTasks(teamId, status) {
-    const params = new URLSearchParams({ tab: 'all' })
+    const params = new URLSearchParams({ tab: isAdmin ? 'all' : 'dept' })
     if (teamId !== 'unassigned') params.set('department_id', String(teamId))
     if (status) params.set('status', status)
     navigate(`/tasks?${params.toString()}`)
   }
 
+  function openStatusTasks(status) {
+    const params = new URLSearchParams({ tab: isAdmin ? 'all' : 'dept' })
+    if (!isAdmin && departmentId) params.set('department_id', String(departmentId))
+    if (status === '_overdue') params.set('overdue', '1')
+    else if (status) params.set('status', status)
+    navigate(`/tasks?${params.toString()}`)
+  }
+
   if (loading) return <PageShell title="Dashboard"><Loader /></PageShell>
+
+  if (!isAdmin && !departmentId) {
+    return (
+      <PageShell title="Dashboard">
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>Department dashboard unavailable</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+            Your profile is not assigned to a department yet. Ask an administrator to assign your department to view this dashboard.
+          </p>
+        </div>
+      </PageShell>
+    )
+  }
 
   return (
     <PageShell title="Dashboard">
@@ -262,13 +302,28 @@ export default function Dashboard() {
           <h2 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8, fontFamily: 'var(--font-headline)', letterSpacing: '-0.01em' }}>
             {greeting()}, {profile?.full_name?.split(' ')[0] ?? 'there'} 👋
           </h2>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 9px',
+            background: 'var(--primary-container)',
+            color: 'var(--primary)',
+            borderRadius: 'var(--radius-badge)',
+            fontSize: 11,
+            fontWeight: 800,
+            marginBottom: 10,
+          }}>
+            <Building2 size={12} />
+            {isAdmin ? 'All Departments' : `${ownDepartment?.name ?? 'Department'} Dashboard`}
+          </div>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
             You have <strong style={{ color: 'var(--on-surface)' }}>{kpis.dueToday} task{kpis.dueToday !== 1 ? 's' : ''} due today</strong>
             {kpis.overdue > 0 && <> and <strong style={{ color: 'var(--danger)' }}>{kpis.overdue} overdue</strong></>}.
           </p>
         </div>
         <button
-          onClick={() => navigate('/tasks')}
+          onClick={() => navigate(isAdmin ? '/tasks?tab=all' : '/tasks?tab=dept')}
           style={{
             position: 'relative', zIndex: 1,
             padding: '10px 20px',
@@ -292,7 +347,7 @@ export default function Dashboard() {
         {statCards.map(card => (
           <div
             key={card.label}
-            onClick={() => card.status && navigate(card.status === '_overdue' ? '/tasks?overdue=1' : `/tasks?status=${card.status}`)}
+            onClick={() => card.status && openStatusTasks(card.status)}
             style={{
               position: 'relative', overflow: 'hidden',
               background: '#fff',
@@ -346,7 +401,7 @@ export default function Dashboard() {
             )}
             {card.label === 'In Progress' && (
               <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-muted)' }}>
-                Across {departments.length} departments
+                Across {dashboardDepartments.length} department{dashboardDepartments.length !== 1 ? 's' : ''}
               </div>
             )}
             {card.label === 'On Hold' && (
@@ -500,14 +555,16 @@ export default function Dashboard() {
             gap: 12,
           }}>
             <h3 style={{ ...sectionTitle, marginBottom: 0 }}>Status Breakdown</h3>
-            <select
-              value={selectedTeam}
-              onChange={e => setSelectedTeam(e.target.value)}
-              style={teamSelectStyle}
-            >
-              <option value="">All Teams</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            {isAdmin && (
+              <select
+                value={selectedTeam}
+                onChange={e => setSelectedTeam(e.target.value)}
+                style={teamSelectStyle}
+              >
+                <option value="">All Teams</option>
+                {dashboardDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            )}
           </div>
           <div style={{ height: 300, padding: '18px 12px 18px 18px' }}>
             <Doughnut
@@ -545,7 +602,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={cardStyle}>
-          <h3 style={sectionTitle}>Tasks by Department</h3>
+          <h3 style={sectionTitle}>{isAdmin ? 'Tasks by Department' : `${ownDepartment?.name ?? 'Department'} Task Mix`}</h3>
           <div style={{ height: 240 }}>
             <Bar
               data={barData}
@@ -574,7 +631,9 @@ export default function Dashboard() {
           flexWrap: 'wrap',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <h3 style={{ ...sectionTitle, marginBottom: 0 }}>In-Progress Tasks by Department - Click to filter</h3>
+            <h3 style={{ ...sectionTitle, marginBottom: 0 }}>
+              {isAdmin ? 'In-Progress Tasks by Department - Click to filter' : 'Department In-Progress Tasks - Click to filter'}
+            </h3>
             <div style={heatmapLegendStyle}>
               <span style={legendDotStyle('#22c55e')} /> &lt;=7 In Progress
               <span style={legendDotStyle('#f97316')} /> 7-12
@@ -582,17 +641,19 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <select
-              value={heatmapDepartment}
-              onChange={e => {
-                setHeatmapDepartment(e.target.value)
-                setHeatmapEmployee('')
-              }}
-              style={teamSelectStyle}
-            >
-              <option value="">All Departments</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            {isAdmin && (
+              <select
+                value={heatmapDepartment}
+                onChange={e => {
+                  setHeatmapDepartment(e.target.value)
+                  setHeatmapEmployee('')
+                }}
+                style={teamSelectStyle}
+              >
+                <option value="">All Departments</option>
+                {dashboardDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            )}
             <select
               value={heatmapEmployee}
               onChange={e => setHeatmapEmployee(e.target.value)}

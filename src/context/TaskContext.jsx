@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext'
 const TaskContext = createContext(null)
 
 export function TaskProvider({ children }) {
-  const { user } = useAuth()
+  const { user, role, profile, loading: authLoading } = useAuth()
   const [tasks, setTasks] = useState([])
   const [departments, setDepartments] = useState([])
   const [profiles, setProfiles] = useState([])
@@ -13,13 +13,37 @@ export function TaskProvider({ children }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !user) { setTasks([]); setLoading(false); return }
+    if (authLoading) return
 
     async function loadAll() {
       setLoading(true)
+      const isAdmin = role === 'super_admin' || role === 'admin'
+      const departmentId = profile?.department_id ?? null
+      let tasksQuery = supabase
+        .from('tasks')
+        .select('*, department:departments(name), owner:profiles!tasks_owner_id_fkey(full_name)')
+        .order('task_number', { ascending: true })
+      let profilesQuery = supabase
+        .from('profiles')
+        .select('*, department:departments(name)')
+
+      if (!isAdmin) {
+        if (!departmentId) {
+          setTasks([])
+          setProfiles([])
+          const { data: deptData, error: deptError } = await supabase.from('departments').select('*')
+          if (!deptError) setDepartments(deptData)
+          setLoading(false)
+          return
+        }
+        tasksQuery = tasksQuery.eq('department_id', departmentId)
+        profilesQuery = profilesQuery.eq('department_id', departmentId)
+      }
+
       const [tasksRes, deptRes, profilesRes] = await Promise.all([
-        supabase.from('tasks').select('*, department:departments(name), owner:profiles!tasks_owner_id_fkey(full_name)').order('task_number', { ascending: true }),
+        tasksQuery,
         supabase.from('departments').select('*'),
-        supabase.from('profiles').select('*, department:departments(name)'),
+        profilesQuery,
       ])
       if (!tasksRes.error) setTasks(tasksRes.data)
       if (!deptRes.error) setDepartments(deptRes.data)
@@ -43,6 +67,11 @@ export function TaskProvider({ children }) {
     const channel = supabase
       .channel('tasks-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, async (payload) => {
+        const isAdmin = role === 'super_admin' || role === 'admin'
+        const departmentId = profile?.department_id ?? null
+        const payloadDepartmentId = payload.new?.department_id ?? payload.old?.department_id ?? null
+        if (!isAdmin && payloadDepartmentId !== departmentId) return
+
         if (payload.eventType === 'INSERT') {
           const full = await fetchTaskWithJoins(payload.new.id)
           if (full) setTasks(prev => prev.some(t => t.id === full.id) ? prev : [...prev, full])
@@ -76,7 +105,7 @@ export function TaskProvider({ children }) {
       supabase.removeChannel(channel)
       supabase.removeChannel(deptChannel)
     }
-  }, [user])
+  }, [user, role, profile?.department_id, authLoading])
 
   // The .select(...).single() chain returns the inserted/updated row WITH
   // the joined department + owner names, so we can update local state

@@ -13,7 +13,7 @@ export default function Sidebar() {
   const { unreadCount } = useNotif()
 
   const navItems = [
-    { to: '/dashboard',      label: 'Dashboard',       Icon: LayoutDashboard, adminOnly: true },
+    { to: '/dashboard',      label: 'Dashboard',       Icon: LayoutDashboard, adminOnly: false },
     { to: '/tasks',          label: 'Task List',       Icon: ListTodo,         adminOnly: false },
     { to: '/gantt',          label: 'Gantt Chart',     Icon: GanttChartSquare, adminOnly: false },
     { to: '/notifications',  label: 'Notifications',   Icon: Bell,             adminOnly: false, badge: unreadCount },
