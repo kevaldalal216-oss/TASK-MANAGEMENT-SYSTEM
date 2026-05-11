@@ -11,6 +11,7 @@ const appUrl =
   import.meta.env.VITE_SITE_URL ||
   import.meta.env.VITE_APP_URL ||
   window.location.origin
+const resetCooldownMs = 60 * 1000
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [lastResetSentAt, setLastResetSentAt] = useState(0)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -41,6 +43,12 @@ export default function LoginPage() {
     const recoveryEmail = email.trim()
     if (!recoveryEmail) { setError('Enter your email above first'); return }
 
+    const remainingCooldown = resetCooldownMs - (Date.now() - lastResetSentAt)
+    if (remainingCooldown > 0) {
+      setError(`Please wait ${Math.ceil(remainingCooldown / 1000)} seconds before requesting another reset email.`)
+      return
+    }
+
     setError('')
     setResetSent(false)
     setResetLoading(true)
@@ -49,8 +57,15 @@ export default function LoginPage() {
     })
     setResetLoading(false)
 
-    if (!error) setResetSent(true)
-    else setError(error.message)
+    if (!error) {
+      setLastResetSentAt(Date.now())
+      setResetSent(true)
+    } else {
+      const message = error.message?.toLowerCase().includes('rate limit')
+        ? 'Too many reset emails were requested. Please wait a few minutes, then try again.'
+        : error.message
+      setError(message)
+    }
   }
 
   return (
