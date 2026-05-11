@@ -10,7 +10,7 @@ const appUrl =
   import.meta.env.REACT_APP_APP_URL ||
   import.meta.env.VITE_SITE_URL ||
   import.meta.env.VITE_APP_URL ||
-  window.location.origin
+  ''
 const resetCooldownMs = 60 * 1000
 const resetRateLimitCooldownMs = 10 * 60 * 1000
 const resetCooldownStoragePrefix = 'password-reset-cooldown-until:'
@@ -45,6 +45,12 @@ export default function LoginPage() {
     const recoveryEmail = email.trim()
     if (!recoveryEmail) { setError('Enter your email above first'); return }
 
+    const redirectBaseUrl = getPasswordResetBaseUrl()
+    if (!redirectBaseUrl) {
+      setError('Password reset is not configured. Add VITE_APP_URL with your live website URL, then request a new reset email.')
+      return
+    }
+
     const cooldownUntil = getResetCooldownUntil(recoveryEmail)
     const localCooldownUntil = lastResetSentAt + resetCooldownMs
     const remainingCooldown = Math.max(cooldownUntil, localCooldownUntil) - Date.now()
@@ -57,7 +63,7 @@ export default function LoginPage() {
     setResetSent(false)
     setResetLoading(true)
     const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
-      redirectTo: `${appUrl.replace(/\/$/, '')}/reset-password`,
+      redirectTo: `${redirectBaseUrl}/reset-password`,
     })
     setResetLoading(false)
 
@@ -322,6 +328,15 @@ export default function LoginPage() {
       `}</style>
     </div>
   )
+}
+
+function getPasswordResetBaseUrl() {
+  const configuredUrl = appUrl.trim().replace(/\/$/, '')
+  if (configuredUrl) return configuredUrl
+
+  const currentOrigin = window.location.origin.replace(/\/$/, '')
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  return isLocalhost ? '' : currentOrigin
 }
 
 function getResetCooldownUntil(email) {
