@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
 
   async function handleSubmit(e) {
@@ -30,8 +31,17 @@ export default function LoginPage() {
   }
 
   async function handleForgotPassword() {
-    if (!email) { setError('Enter your email above first'); return }
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const recoveryEmail = email.trim()
+    if (!recoveryEmail) { setError('Enter your email above first'); return }
+
+    setError('')
+    setResetSent(false)
+    setResetLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setResetLoading(false)
+
     if (!error) setResetSent(true)
     else setError(error.message)
   }
@@ -202,13 +212,17 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
+                  disabled={resetLoading}
                   style={{
                     fontSize: 12, fontWeight: 600,
                     color: 'var(--primary)',
-                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    background: 'none', border: 'none',
+                    cursor: resetLoading ? 'not-allowed' : 'pointer',
+                    opacity: resetLoading ? 0.65 : 1,
+                    padding: 0,
                   }}
                 >
-                  Forgot password?
+                  {resetLoading ? 'Sending...' : 'Forgot password?'}
                 </button>
               </div>
               <div style={{ position: 'relative' }}>

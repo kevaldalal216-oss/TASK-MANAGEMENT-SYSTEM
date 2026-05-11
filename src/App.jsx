@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import SetupScreen from './pages/SetupScreen'
 
 import LoginPage from './pages/LoginPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import Dashboard from './pages/Dashboard'
 import TaskList from './pages/TaskList'
 import GanttChart from './pages/GanttChart'
@@ -47,6 +48,7 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         <Route
           element={
