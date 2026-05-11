@@ -26,6 +26,8 @@ const ROLE_BADGE = {
 }
 
 const adminRoles = ['super_admin', 'admin']
+const userCreateRateLimitCooldownMs = 10 * 60 * 1000
+const userCreateCooldownStoragePrefix = 'user-create-cooldown-until:'
 
 function initialsOf(name) {
   if (!name) return '?'
@@ -297,11 +299,33 @@ function UserModal({ mode, user, departments, myRole, onClose }) {
     password: '',
   })
   const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [createCooldownUntil, setCreateCooldownUntilState] = useState(0)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    if (mode !== 'create') return
+    const email = form.email.trim()
+    setCreateCooldownUntilState(email ? getUserCreateCooldownUntil(email) : 0)
+  }, [form.email, mode])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   function set(k, v) { setForm(p => ({ ...p, [k]: v })) }
 
   async function handleSubmit(e) {
     e.preventDefault()
+    setFormError('')
+
+    const createWaitMs = createCooldownUntil - Date.now()
+    if (mode === 'create' && createWaitMs > 0) {
+      setFormError(`Supabase email limit is active. Please wait ${formatWaitTime(createWaitMs)} before creating another auth user.`)
+      return
+    }
+
     setSaving(true)
     try {
       if (mode === 'create') {
@@ -336,11 +360,21 @@ function UserModal({ mode, user, departments, myRole, onClose }) {
       }
       onClose()
     } catch (err) {
-      showToast(err.message, 'error')
+      const message = getUserCreateErrorMessage(err)
+      if (mode === 'create' && isRateLimitError(err)) {
+        const nextCooldownUntil = Date.now() + userCreateRateLimitCooldownMs
+        setUserCreateCooldownUntil(form.email, nextCooldownUntil)
+        setCreateCooldownUntilState(nextCooldownUntil)
+      }
+      setFormError(message)
+      showToast(message, 'error')
     } finally {
       setSaving(false)
     }
   }
+
+  const createWaitMs = mode === 'create' ? createCooldownUntil - now : 0
+  const isCreateCoolingDown = createWaitMs > 0
 
   return (
     <Modal isOpen title={mode === 'create' ? 'Add User' : 'Edit User'} onClose={onClose} maxWidth={440}>
@@ -389,9 +423,24 @@ function UserModal({ mode, user, departments, myRole, onClose }) {
           </select>
         </Field>
 
+        {(formError || isCreateCoolingDown) && (
+          <div style={{
+            fontSize: 13,
+            color: 'var(--danger)',
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            padding: '10px 12px',
+            borderRadius: 'var(--radius-button)',
+          }}>
+            {isCreateCoolingDown
+              ? `Supabase email limit is active. Try again in ${formatWaitTime(createWaitMs)}.`
+              : formError}
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={saving}>
+          <Button variant="primary" type="submit" disabled={saving || isCreateCoolingDown}>
             {saving ? 'Saving…' : mode === 'create' ? 'Create User' : 'Save'}
           </Button>
         </div>
@@ -459,6 +508,40 @@ function Field({ label, required, children }) {
       {children}
     </div>
   )
+}
+
+function isRateLimitError(err) {
+  return err?.message?.toLowerCase().includes('rate limit') || err?.status === 429
+}
+
+function getUserCreateErrorMessage(err) {
+  if (isRateLimitError(err)) {
+    return 'Supabase email rate limit exceeded. Wait a few minutes, or disable signup confirmation emails / configure custom SMTP in Supabase Auth.'
+  }
+  return err?.message ?? 'Unable to create user.'
+}
+
+function getUserCreateCooldownUntil(email) {
+  try {
+    return Number(window.localStorage.getItem(`${userCreateCooldownStoragePrefix}${email.toLowerCase()}`)) || 0
+  } catch (_) {
+    return 0
+  }
+}
+
+function setUserCreateCooldownUntil(email, timestamp) {
+  try {
+    window.localStorage.setItem(`${userCreateCooldownStoragePrefix}${email.toLowerCase()}`, String(timestamp))
+  } catch (_) {
+    // Supabase still enforces the real email limit if storage is unavailable.
+  }
+}
+
+function formatWaitTime(ms) {
+  const seconds = Math.ceil(ms / 1000)
+  if (seconds < 60) return `${seconds} seconds`
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
 }
 
 const thStyle = {
