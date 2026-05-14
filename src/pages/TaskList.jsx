@@ -18,12 +18,17 @@ function projectName(task) {
   return ''
 }
 
+function assignedByName(task, profiles) {
+  return profiles.find(profile => profile.id === task.created_by)?.full_name ?? ''
+}
+
 const COLUMNS = [
   { key: 'task_number', label: '#' },
   { key: 'activity', label: 'Activity' },
   { key: 'project', label: 'Project', sortValue: projectName },
   { key: 'department_id', label: 'Department' },
   { key: 'owner_id', label: 'Owner' },
+  { key: 'created_by', label: 'Assigned By' },
   { key: 'responsibility', label: 'Responsibility' },
   { key: 'status', label: 'Status' },
   { key: 'start_date', label: 'Start Date' },
@@ -80,12 +85,12 @@ export default function TaskList() {
 
     return [...base].sort((a, b) => {
       const column = COLUMNS.find(col => col.key === sort.col)
-      const va = column?.sortValue ? column.sortValue(a) : a[sort.col] ?? ''
-      const vb = column?.sortValue ? column.sortValue(b) : b[sort.col] ?? ''
+      const va = sort.col === 'created_by' ? assignedByName(a, profiles) : column?.sortValue ? column.sortValue(a) : a[sort.col] ?? ''
+      const vb = sort.col === 'created_by' ? assignedByName(b, profiles) : column?.sortValue ? column.sortValue(b) : b[sort.col] ?? ''
       const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
       return sort.dir === 'asc' ? cmp : -cmp
     })
-  }, [tasks, tab, search, filterDept, filterStatus, filterOwner, sort, user, profile, searchParams])
+  }, [tasks, tab, search, filterDept, filterStatus, filterOwner, sort, user, profile, profiles, searchParams])
 
   function toggleSort(col) {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
@@ -239,7 +244,7 @@ export default function TaskList() {
                   </tr>
                 ) : (
                   filtered.map((task, i) => (
-                    <TaskRow key={task.id} task={task} index={i} onClick={setSelectedTask} />
+                    <TaskRow key={task.id} task={task} profiles={profiles} index={i} onClick={setSelectedTask} />
                   ))
                 )}
               </tbody>

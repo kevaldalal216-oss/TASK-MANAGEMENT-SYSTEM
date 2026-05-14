@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 const STATUS_OPTIONS = ['not_started', 'in_progress', 'continuous', 'hold', 'completed']
 
 export default function TaskDetail({ task, onClose }) {
-  const { departments, profiles, updateTask, deleteTask } = useTasks()
+  const { departments, profiles, updateTask, deleteTask, canDeleteTask } = useTasks()
   const { showToast } = useToast()
   const { user, role, profile } = useAuth()
   const [form, setForm] = useState({ ...task, subtasks: parseSubtasks(task.subtask, task.subtask_dependency) })
@@ -83,7 +83,7 @@ export default function TaskDetail({ task, onClose }) {
   async function handleDelete() {
     setSaving(true)
     try {
-      await deleteTask(task.id)
+      await deleteTask(task)
       showToast('Task deleted')
       onClose()
     } catch (err) {
@@ -94,7 +94,7 @@ export default function TaskDetail({ task, onClose }) {
   }
 
   const isAdmin = role === 'admin' || role === 'super_admin'
-  const canDelete = isAdmin
+  const canDelete = canDeleteTask(task)
   const currentProfile = profiles.find(p => p.id === user?.id) ?? profile
   const currentDepartment = departments.find(d => d.id === currentProfile?.department_id)
   const currentUserName = currentProfile?.full_name ?? user?.email ?? ''

@@ -12,10 +12,11 @@ function projectName(task) {
   return ''
 }
 
-export default function TaskRow({ task, onClick, index }) {
+export default function TaskRow({ task, profiles = [], onClick, index }) {
   const project = projectName(task)
   const subtasks = splitLines(task.subtask)
   const subtaskDependencies = splitLines(task.subtask_dependency)
+  const assignedBy = profiles.find(profile => profile.id === task.created_by)
 
   return (
     <tr
@@ -64,6 +65,23 @@ export default function TaskRow({ task, onClick, index }) {
                 fontFamily: 'var(--font-headline)',
               }}>{initialsOf(task.owner.full_name)}</span>
               <span style={{ fontSize: 13 }}>{task.owner.full_name}</span>
+            </span>
+          )
+          : <span style={{ color: 'var(--text-muted)' }}>—</span>
+        }
+      </td>
+      <td style={tdStyle}>
+        {assignedBy?.full_name
+          ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: 'var(--surface-container-high)',
+                color: 'var(--text-secondary)', fontSize: 9, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--font-headline)',
+              }}>{initialsOf(assignedBy.full_name)}</span>
+              <span style={{ fontSize: 13 }}>{assignedBy.full_name}</span>
             </span>
           )
           : <span style={{ color: 'var(--text-muted)' }}>—</span>

@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext'
 const TaskContext = createContext(null)
 
 export function TaskProvider({ children }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [tasks, setTasks] = useState([])
   const [departments, setDepartments] = useState([])
   const [profiles, setProfiles] = useState([])
@@ -144,10 +144,31 @@ export function TaskProvider({ children }) {
     return updated
   }
 
-  async function deleteTask(id) {
-    const { error } = await supabase.from('tasks').delete().eq('id', id)
+  function canDeleteTask(task) {
+    if (!task || !user) return false
+
+    const currentProfile = profiles.find(p => p.id === user.id) ?? profile
+    const currentDepartmentId = currentProfile?.department_id
+    const ownsTask = task.owner_id === user.id || task.created_by === user.id
+    const sameDepartment = currentDepartmentId != null
+      && task.department_id != null
+      && Number(task.department_id) === Number(currentDepartmentId)
+
+    return ownsTask || sameDepartment
+  }
+
+  async function deleteTask(taskOrId) {
+    const task = typeof taskOrId === 'object'
+      ? taskOrId
+      : tasks.find(t => t.id === taskOrId)
+
+    if (!canDeleteTask(task)) {
+      throw new Error('You can only delete tasks assigned to you or your department.')
+    }
+
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id)
     if (error) throw error
-    setTasks(prev => sortByTaskNumber(prev.filter(t => t.id !== id)))
+    setTasks(prev => sortByTaskNumber(prev.filter(t => t.id !== task.id)))
     await renumberTasks()
   }
 
@@ -163,7 +184,7 @@ export function TaskProvider({ children }) {
   }
 
   return (
-    <TaskContext.Provider value={{ tasks, departments, profiles, loading, createTask, updateTask, deleteTask, createDepartment }}>
+    <TaskContext.Provider value={{ tasks, departments, profiles, loading, createTask, updateTask, deleteTask, canDeleteTask, createDepartment }}>
       {children}
     </TaskContext.Provider>
   )
