@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Lock, User } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, Activity, Users } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import Button from '../components/common/Button'
 
 const appUrl =
   import.meta.env.REACT_APP_SITE_URL ||
@@ -54,10 +55,7 @@ export default function LoginPage() {
 
   async function handleForgotPassword() {
     const recoveryEmail = email.trim()
-    if (!recoveryEmail) {
-      setError('Enter your email above first')
-      return
-    }
+    if (!recoveryEmail) { setError('Enter your email above first'); return }
 
     const redirectBaseUrl = getPasswordResetBaseUrl()
     if (!redirectBaseUrl) {
@@ -105,81 +103,252 @@ export default function LoginPage() {
   const isResetCoolingDown = resetWaitMs > 0
 
   return (
-    <div className="tms-login-page">
-      <div className="tms-brand">
-        <h1>TMS BY 72 Street</h1>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      background: 'var(--surface)',
+    }}>
+      {/* Left panel — gradient hero (hidden on small screens) */}
+      <div className="login-hero" style={{
+        flex: '1.2',
+        background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 35%, #3755c3 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        padding: '60px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        color: '#fff',
+      }}>
+        {/* Decorative blurs */}
+        <div style={{
+          position: 'absolute', top: -120, right: -100, width: 380, height: 380,
+          borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(80px)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -100, left: -80, width: 320, height: 320,
+          borderRadius: '50%', background: 'rgba(180, 197, 255, 0.18)', filter: 'blur(80px)',
+        }} />
+
+        {/* Brand */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 44, height: 44,
+            borderRadius: 12,
+            background: 'rgba(255,255,255,0.18)',
+            border: '1px solid rgba(255,255,255,0.3)',
+            backdropFilter: 'blur(20px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, fontSize: 16,
+            fontFamily: 'var(--font-headline)',
+          }}>TF</div>
+          <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-headline)' }}>
+            TaskFlow TMS
+          </span>
+        </div>
+
+        {/* Floating glass cards */}
+        <div style={{
+          position: 'absolute', top: '32%', right: '8%',
+          width: 240, padding: 18,
+          background: 'rgba(255,255,255,0.12)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.22)',
+          borderRadius: 'var(--radius-card)',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+          transform: 'rotate(2deg)',
+          zIndex: 2,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 11, opacity: 0.85 }}>
+            <Activity size={14} /> LIVE
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Q3 Audit Review</div>
+          <div style={{ fontSize: 12, opacity: 0.75 }}>4 dependencies · 8 tasks</div>
+          <div style={{
+            marginTop: 10, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden',
+          }}>
+            <div style={{ height: '100%', width: '72%', background: '#fff' }} />
+          </div>
+        </div>
+
+        <div style={{
+          position: 'absolute', bottom: '28%', left: '14%',
+          width: 200, padding: 14,
+          background: 'rgba(255,255,255,0.12)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.22)',
+          borderRadius: 'var(--radius-card)',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+          transform: 'rotate(-3deg)',
+          zIndex: 2,
+        }}>
+          <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 4 }}>Tasks completed</div>
+          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-headline)' }}>+34</div>
+          <div style={{ fontSize: 11, opacity: 0.75 }}>this week</div>
+        </div>
+
+        {/* Headline + bullets */}
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 460 }}>
+          <h1 style={{
+            fontSize: 42, fontWeight: 800,
+            fontFamily: 'var(--font-headline)',
+            lineHeight: 1.1, letterSpacing: '-0.02em',
+            marginBottom: 16,
+          }}>
+            Plan. Track.<br />Complete with confidence.
+          </h1>
+          <p style={{ fontSize: 16, opacity: 0.85, lineHeight: 1.6, marginBottom: 28 }}>
+            The unified workspace for 72 Street's task management — built for clarity, speed, and accountability.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {[
+              { Icon: ShieldCheck, label: 'Role-based access' },
+              { Icon: Activity,   label: 'Real-time sync' },
+              { Icon: Users,      label: 'Team workflows' },
+            ].map(({ Icon, label }) => (
+              <div key={label} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px',
+                background: 'rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 9999,
+                fontSize: 12, fontWeight: 500,
+              }}>
+                <Icon size={14} />
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1, fontSize: 12, opacity: 0.7 }}>
+          © 2026 72 Street — All rights reserved
+        </div>
       </div>
 
-      <main className="login-card-shell">
-        <section className="login-card" aria-label="Login">
-          <h2>Welcome Back</h2>
-          <p className="login-subtitle">Login to your account</p>
+      {/* Right panel — login form */}
+      <div style={{
+        flex: '1',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px',
+      }}>
+        <div style={{
+          width: '100%', maxWidth: 400,
+        }}>
+          <h2 style={{
+            fontSize: 30, fontWeight: 700,
+            fontFamily: 'var(--font-headline)',
+            letterSpacing: '-0.02em',
+            marginBottom: 8,
+          }}>
+            Welcome back
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 15, marginBottom: 32 }}>
+            Sign in to continue to your workspace.
+          </p>
 
-          <form onSubmit={handleSubmit} className="tms-login-form">
-            <label className="input-shell" aria-label="Username or Email">
-              <User size={17} strokeWidth={2} />
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={labelStyle}>Email address</label>
               <input
-                type="email"
-                required
-                autoFocus
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="Username or Email"
+                type="email" required autoFocus
+                value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="you@72street.ai"
+                style={inputStyle}
               />
-            </label>
+            </div>
 
-            <label className="input-shell" aria-label="Password">
-              <Lock size={16} strokeWidth={2} />
-              <input
-                type={showPw ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Password"
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPw(p => !p)}
-                aria-label={showPw ? 'Hide password' : 'Show password'}
-              >
-                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={labelStyle}>Password</label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetLoading || isResetCoolingDown}
+                  style={{
+                    fontSize: 12, fontWeight: 600,
+                    color: 'var(--primary)',
+                    background: 'none', border: 'none',
+                    cursor: resetLoading || isResetCoolingDown ? 'not-allowed' : 'pointer',
+                    opacity: resetLoading || isResetCoolingDown ? 0.65 : 1,
+                    padding: 0,
+                  }}
+                >
+                  {resetLoading
+                    ? 'Sending...'
+                    : isResetCoolingDown
+                      ? `Wait ${formatWaitTime(resetWaitMs)}`
+                      : 'Forgot password?'}
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPw ? 'text' : 'password'} required
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{ ...inputStyle, paddingRight: 44 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(p => !p)}
+                  style={{
+                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)', display: 'flex', padding: 4,
+                  }}
+                >
+                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
 
             {error && (
-              <div className="login-message error-message">
+              <div style={{
+                fontSize: 13, color: 'var(--danger)',
+                background: 'var(--danger-bg)',
+                border: '1px solid var(--danger-border)',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-button)',
+              }}>
                 {error}
               </div>
             )}
 
             {resetSent && (
-              <div className="login-message success-message">
-                Password reset email sent - check your inbox.
+              <div style={{
+                fontSize: 13, color: 'var(--success)',
+                background: 'var(--success-bg)',
+                border: '1px solid var(--success-border)',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-button)',
+              }}>
+                Password reset email sent — check your inbox.
               </div>
             )}
 
-            <button className="signin-button" type="submit" disabled={loading}>
-              {loading ? 'SIGNING IN...' : 'SIGN IN'}
-            </button>
+            <Button variant="primary" type="submit" disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', padding: '12px 18px', fontSize: 14 }}>
+              {loading ? 'Signing in…' : 'Sign In'}
+            </Button>
           </form>
 
-          <button
-            type="button"
-            className="forgot-link"
-            onClick={handleForgotPassword}
-            disabled={resetLoading || isResetCoolingDown}
-          >
-            {resetLoading
-              ? 'Sending...'
-              : isResetCoolingDown
-                ? `Wait ${formatWaitTime(resetWaitMs)}`
-                : 'Forgot Password?'}
-          </button>
-        </section>
-      </main>
+          <p style={{
+            marginTop: 32, textAlign: 'center', fontSize: 12,
+            color: 'var(--text-muted)',
+          }}>
+            Need an account? Contact your administrator.
+          </p>
+        </div>
+      </div>
 
-      <style>{loginStyles}</style>
+      <style>{`
+        @media (max-width: 900px) {
+          .login-hero { display: none !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -216,214 +385,17 @@ function formatWaitTime(ms) {
   return `${minutes} minute${minutes === 1 ? '' : 's'}`
 }
 
-const loginStyles = `
-  .tms-login-page {
-    min-height: 100vh;
-    position: relative;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    padding: 34px;
-    color: #f8fafc;
-    background: #071114 url('/login-background.svg') center / cover no-repeat;
-    isolation: isolate;
-  }
-
-  .tms-brand {
-    position: absolute;
-    top: clamp(34px, 7vh, 58px);
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    z-index: 7;
-    width: min(92vw, 900px);
-    white-space: nowrap;
-  }
-
-  .tms-brand h1 {
-    margin: 0;
-    color: #ffd718;
-    font-family: 'Merriweather', serif;
-    font-size: 42px;
-    line-height: 1;
-    letter-spacing: 0;
-    font-weight: 800;
-    text-align: center;
-  }
-
-  .login-card-shell {
-    position: relative;
-    z-index: 8;
-    width: min(100%, 276px);
-    margin-top: 10px;
-  }
-
-  .login-card {
-    width: 100%;
-    min-height: 298px;
-    padding: 22px 24px 20px;
-    text-align: center;
-    color: #071016;
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    border-radius: 12px;
-    background:
-      radial-gradient(circle at 78% 30%, rgba(255, 245, 149, 0.38), transparent 16%),
-      radial-gradient(circle at 26% 86%, rgba(156, 232, 230, 0.26), transparent 26%),
-      rgba(248, 250, 252, 0.9);
-    box-shadow:
-      0 22px 62px rgba(0, 0, 0, 0.36),
-      inset 0 1px 0 rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-
-  .login-card h2 {
-    color: #070d12;
-    font-size: 24px;
-    line-height: 1.1;
-    letter-spacing: 0;
-    font-weight: 800;
-    margin: 0 0 4px;
-  }
-
-  .login-subtitle {
-    color: #161d23;
-    font-size: 14px;
-    margin-bottom: 17px;
-  }
-
-  .tms-login-form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .input-shell {
-    height: 36px;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 0 11px;
-    border: 1px solid rgba(23, 32, 39, 0.86);
-    border-radius: 6px;
-    background: rgba(250, 252, 255, 0.82);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-    color: #10171d;
-  }
-
-  .input-shell input {
-    min-width: 0;
-    flex: 1;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: #10171d;
-    font-size: 13px;
-    box-shadow: none !important;
-  }
-
-  .input-shell input::placeholder {
-    color: #313b45;
-    opacity: 1;
-  }
-
-  .password-toggle {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    color: #10171d;
-    padding: 0;
-  }
-
-  .signin-button {
-    width: 100%;
-    height: 37px;
-    border-radius: 999px;
-    margin-top: 1px;
-    color: #0a1015;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0;
-    background: linear-gradient(180deg, #ffe129 0%, #ffd000 100%);
-    box-shadow: 0 8px 17px rgba(255, 208, 0, 0.37);
-  }
-
-  .signin-button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 11px 22px rgba(255, 208, 0, 0.43);
-  }
-
-  .signin-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.72;
-  }
-
-  .forgot-link {
-    display: inline-flex;
-    justify-content: center;
-    max-width: 100%;
-    margin-top: 11px;
-    color: #15222a;
-    font-size: 12px;
-    line-height: 1.25;
-    padding: 0;
-  }
-
-  .forgot-link:disabled {
-    cursor: not-allowed;
-    opacity: 0.62;
-  }
-
-  .login-message {
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 12px;
-    line-height: 1.25;
-    text-align: left;
-  }
-
-  .error-message {
-    color: #8a1111;
-    background: rgba(254, 226, 226, 0.82);
-    border: 1px solid rgba(185, 28, 28, 0.32);
-  }
-
-  .success-message {
-    color: #055c3b;
-    background: rgba(220, 252, 231, 0.84);
-    border: 1px solid rgba(22, 163, 74, 0.32);
-  }
-
-  @media (max-width: 860px) {
-    .tms-login-page {
-      align-items: end;
-      padding: 30px 20px 52px;
-    }
-
-    .tms-brand {
-      top: 34px;
-      transform: translateX(-50%) scale(0.74);
-      transform-origin: center top;
-    }
-
-    .login-card-shell {
-      width: min(100%, 292px);
-      margin-top: 210px;
-    }
-
-  }
-
-  @media (max-width: 520px) {
-    .tms-brand {
-      transform: translateX(-50%) scale(0.54);
-    }
-
-    .login-card-shell {
-      margin-top: 175px;
-    }
-
-  }
-`
+const labelStyle = {
+  fontSize: 13, fontWeight: 600,
+  color: 'var(--text-secondary)',
+}
+const inputStyle = {
+  padding: '12px 14px',
+  border: '1px solid var(--outline-variant)',
+  borderRadius: 'var(--radius-button)',
+  fontSize: 14,
+  color: 'var(--text-primary)',
+  background: '#fff',
+  width: '100%',
+  transition: 'all 0.2s',
+}
