@@ -79,7 +79,6 @@ export default function Dashboard() {
   })
 
   const kpis = useMemo(() => {
-    const total = tasks.length
     const completed = tasks.filter(t => t.status === 'completed').length
     const in_progress = tasks.filter(t => t.status === 'in_progress').length
     const continuous = tasks.filter(t => t.status === 'continuous').length
@@ -87,6 +86,7 @@ export default function Dashboard() {
     const overdue = tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length
     const dueToday = tasks.filter(t => t.end_date === today && t.status !== 'completed').length
     const not_started = tasks.filter(t => t.status === 'not_started').length
+    const total = completed + in_progress + continuous + hold + not_started
     return { total, completed, in_progress, continuous, hold, overdue, dueToday, not_started }
   }, [tasks, today])
 
