@@ -60,8 +60,9 @@ export default function ResetPasswordPage() {
     setError('')
     setSuccess(false)
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+    const passwordError = getPasswordValidationError(password)
+    if (passwordError) {
+      setError(passwordError)
       return
     }
 
@@ -157,7 +158,7 @@ export default function ResetPasswordPage() {
 
             {success && (
               <div style={messageStyle('var(--success)', 'var(--success-bg)', 'var(--success-border)')}>
-                Password updated. Redirecting to login...
+                Password updated successfully. Redirecting to login...
               </div>
             )}
 
@@ -224,6 +225,15 @@ function PasswordField({ label, value, onChange, showPw, toggleShowPw, autoFocus
       </div>
     </div>
   )
+}
+
+function getPasswordValidationError(value) {
+  if (value.length < 8) return 'Password must be at least 8 characters.'
+  if (!/[A-Z]/.test(value)) return 'Password must include at least one uppercase letter.'
+  if (!/[a-z]/.test(value)) return 'Password must include at least one lowercase letter.'
+  if (!/[0-9]/.test(value)) return 'Password must include at least one number.'
+  if (!/[^A-Za-z0-9]/.test(value)) return 'Password must include at least one special character.'
+  return ''
 }
 
 const labelStyle = {

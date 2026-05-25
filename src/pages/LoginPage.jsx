@@ -14,6 +14,7 @@ const appUrl =
 const resetCooldownMs = 10 * 60 * 1000
 const resetRateLimitCooldownMs = 10 * 60 * 1000
 const resetCooldownStoragePrefix = 'password-reset-cooldown-until:'
+const forgotPasswordSuccessMessage = 'If this email exists, a reset link has been sent.'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -54,8 +55,9 @@ export default function LoginPage() {
   }
 
   async function handleForgotPassword() {
-    const recoveryEmail = email.trim()
+    const recoveryEmail = normalizeEmail(email)
     if (!recoveryEmail) { setError('Enter your email above first'); return }
+    if (!isValidEmail(recoveryEmail)) { setError('Enter a valid email address.'); return }
 
     const redirectBaseUrl = getPasswordResetBaseUrl()
     if (!redirectBaseUrl) {
@@ -67,7 +69,8 @@ export default function LoginPage() {
     const localCooldownUntil = lastResetSentAt + resetCooldownMs
     const remainingCooldown = Math.max(cooldownUntil, localCooldownUntil) - Date.now()
     if (remainingCooldown > 0) {
-      setError(`Please wait ${formatWaitTime(remainingCooldown)} before requesting another reset email.`)
+      setError('')
+      setResetSent(true)
       return
     }
 
@@ -79,23 +82,15 @@ export default function LoginPage() {
     })
     setResetLoading(false)
 
-    if (!error) {
-      setLastResetSentAt(Date.now())
-      const nextCooldownUntil = Date.now() + resetCooldownMs
-      setResetCooldownUntil(recoveryEmail, nextCooldownUntil)
-      setResetCooldownUntilState(nextCooldownUntil)
-      setResetSent(true)
-    } else {
-      const isRateLimit = error.message?.toLowerCase().includes('rate limit')
-      if (isRateLimit) {
-        const nextCooldownUntil = Date.now() + resetRateLimitCooldownMs
-        setResetCooldownUntil(recoveryEmail, nextCooldownUntil)
-        setResetCooldownUntilState(nextCooldownUntil)
-      }
-      const message = isRateLimit
-        ? `Too many reset emails were requested. Please wait ${formatWaitTime(resetRateLimitCooldownMs)}, then try again.`
-        : error.message
-      setError(message)
+    const isRateLimit = error?.message?.toLowerCase().includes('rate limit')
+    const nextCooldownUntil = Date.now() + (isRateLimit ? resetRateLimitCooldownMs : resetCooldownMs)
+    setLastResetSentAt(Date.now())
+    setResetCooldownUntil(recoveryEmail, nextCooldownUntil)
+    setResetCooldownUntilState(nextCooldownUntil)
+    setResetSent(true)
+
+    if (error && !isRateLimit) {
+      console.warn('Password reset request failed:', error.message)
     }
   }
 
@@ -325,7 +320,7 @@ export default function LoginPage() {
                 padding: '10px 12px',
                 borderRadius: 'var(--radius-button)',
               }}>
-                Password reset email sent — check your inbox.
+                {forgotPasswordSuccessMessage}
               </div>
             )}
 
@@ -358,8 +353,7 @@ function getPasswordResetBaseUrl() {
   if (configuredUrl) return configuredUrl
 
   const currentOrigin = window.location.origin.replace(/\/$/, '')
-  const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  return isLocalhost ? '' : currentOrigin
+  return currentOrigin
 }
 
 function getResetCooldownUntil(email) {
@@ -376,6 +370,14 @@ function setResetCooldownUntil(email, timestamp) {
   } catch (_) {
     // Ignore storage failures; Supabase still enforces the real rate limit.
   }
+}
+
+function normalizeEmail(value) {
+  return value.trim().toLowerCase()
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
 function formatWaitTime(ms) {
