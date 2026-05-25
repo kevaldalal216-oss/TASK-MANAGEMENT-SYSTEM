@@ -61,9 +61,7 @@ export default function App() {
           <Route path="/gantt"         element={<GanttChart />} />
           <Route path="/notifications" element={<Notifications />} />
 
-          <Route path="/dashboard" element={
-            <RequireAdmin><Dashboard /></RequireAdmin>
-          } />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/audit" element={
             <RequireAdmin><AuditLog /></RequireAdmin>
           } />
@@ -72,7 +70,7 @@ export default function App() {
           } />
 
           {/* Default redirect */}
-          <Route index element={<Navigate to="/tasks" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/tasks" replace />} />
         </Route>
       </Routes>

@@ -67,7 +67,7 @@ function greeting() {
 
 export default function Dashboard() {
   const { tasks, departments, profiles, loading } = useTasks()
-  const { profile } = useAuth()
+  const { role, profile } = useAuth()
   const navigate = useNavigate()
   const [selectedTeam, setSelectedTeam] = useState('')
   const [heatmapDepartment, setHeatmapDepartment] = useState('')
@@ -91,6 +91,7 @@ export default function Dashboard() {
   }, [tasks, today])
 
   const completionPct = kpis.total ? Math.round((kpis.completed / kpis.total) * 100) : 0
+  const isAdmin = role === 'admin' || role === 'super_admin'
 
   const statusBreakdownTasks = useMemo(() =>
     selectedTeam ? tasks.filter(t => String(t.department_id) === selectedTeam) : tasks,
@@ -173,11 +174,23 @@ export default function Dashboard() {
 
   function openHeatmapTasks(departmentId) {
     const params = new URLSearchParams({
-      tab: 'all',
+      tab: isAdmin ? 'all' : 'dept',
       status: 'in_progress',
       department_id: String(departmentId),
     })
     if (heatmapEmployee) params.set('owner_id', heatmapEmployee)
+    navigate(`/tasks?${params.toString()}`)
+  }
+
+  function openCardTasks(status) {
+    if (!status) return
+    const params = new URLSearchParams()
+    if (!isAdmin) params.set('tab', 'dept')
+    if (status === '_overdue') {
+      params.set('overdue', '1')
+    } else {
+      params.set('status', status)
+    }
     navigate(`/tasks?${params.toString()}`)
   }
 
@@ -238,7 +251,7 @@ export default function Dashboard() {
         {statCards.map(card => (
           <div
             key={card.label}
-            onClick={() => card.status && navigate(card.status === '_overdue' ? '/tasks?overdue=1' : `/tasks?status=${card.status}`)}
+            onClick={() => openCardTasks(card.status)}
             style={{
               position: 'relative', overflow: 'hidden',
               background: '#fff',
