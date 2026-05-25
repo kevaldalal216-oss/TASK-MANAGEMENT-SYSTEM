@@ -102,7 +102,7 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={mode === 'assign' ? 'Assign Task' : 'Create New Task'}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
           <Field label="Task #">
             <input type="text" disabled value={`Auto (#${nextTaskNumber})`} style={{ ...inputStyle, opacity: 0.65 }} />
           </Field>
@@ -111,13 +111,12 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </select>
           </Field>
+          <Field label="Priority">
+            <select value={form.priority} onChange={e => set('priority', e.target.value)} style={inputStyle}>
+              {PRIORITY_OPTIONS.map(priority => <option key={priority} value={priority}>{priority}</option>)}
+            </select>
+          </Field>
         </div>
-
-        <Field label="Priority">
-          <select value={form.priority} onChange={e => set('priority', e.target.value)} style={inputStyle}>
-            {PRIORITY_OPTIONS.map(priority => <option key={priority} value={priority}>{priority}</option>)}
-          </select>
-        </Field>
 
         <Field label="Activity" required>
           <input type="text" required value={form.activity} onChange={e => set('activity', e.target.value)} style={inputStyle} />

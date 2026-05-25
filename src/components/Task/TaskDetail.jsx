@@ -104,7 +104,7 @@ export default function TaskDetail({ task, onClose }) {
   return (
     <Modal isOpen={!!task} onClose={onClose} title={`Task #${task.task_number}`}>
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
           <Field label="Task #">
             <input type="number" disabled value={form.task_number} style={{ ...inputStyle, opacity: 0.6 }} />
           </Field>
@@ -113,13 +113,12 @@ export default function TaskDetail({ task, onClose }) {
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </select>
           </Field>
+          <Field label="Priority">
+            <select value={form.priority ?? 'medium'} onChange={e => set('priority', e.target.value)} style={inputStyle}>
+              {PRIORITY_OPTIONS.map(priority => <option key={priority} value={priority}>{priority}</option>)}
+            </select>
+          </Field>
         </div>
-
-        <Field label="Priority">
-          <select value={form.priority ?? 'medium'} onChange={e => set('priority', e.target.value)} style={inputStyle}>
-            {PRIORITY_OPTIONS.map(priority => <option key={priority} value={priority}>{priority}</option>)}
-          </select>
-        </Field>
 
         <Field label="Activity">
           <input type="text" value={form.activity} onChange={e => set('activity', e.target.value)} style={inputStyle} />

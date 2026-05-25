@@ -38,6 +38,7 @@ export default function TaskRow({ task, profiles = [], onClick, index }) {
       <td style={{ ...tdStyle, maxWidth: 280, fontWeight: 500, color: 'var(--on-surface)' }}>
         {task.activity}
       </td>
+      <td style={tdStyle}><PriorityBadge priority={task.priority} /></td>
       <td style={tdStyle}>
         {project || <span style={{ color: 'var(--text-muted)' }}>—</span>}
       </td>
@@ -89,7 +90,6 @@ export default function TaskRow({ task, profiles = [], onClick, index }) {
       </td>
       <td style={tdStyle}>{task.responsibility ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
       <td style={tdStyle}><StatusBadge status={task.status} /></td>
-      <td style={tdStyle}><PriorityBadge priority={task.priority} /></td>
       <td style={{ ...tdStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
         {task.start_date ?? '—'}
       </td>
