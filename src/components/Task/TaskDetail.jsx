@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
 
 const STATUS_OPTIONS = ['not_started', 'in_progress', 'continuous', 'hold', 'completed']
+const PRIORITY_OPTIONS = ['High', 'medium', 'Low']
 
 export default function TaskDetail({ task, onClose }) {
   const { departments, profiles, updateTask, deleteTask, canDeleteTask } = useTasks()
@@ -66,6 +67,7 @@ export default function TaskDetail({ task, onClose }) {
         owner_id: ownerId || null,
         dependency: form.dependency || null,
         status: form.status,
+        priority: form.priority || 'medium',
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         subtask: subtasks.map(subtask => subtask.title.trim()).join('\n') || null,
@@ -112,6 +114,12 @@ export default function TaskDetail({ task, onClose }) {
             </select>
           </Field>
         </div>
+
+        <Field label="Priority">
+          <select value={form.priority ?? 'medium'} onChange={e => set('priority', e.target.value)} style={inputStyle}>
+            {PRIORITY_OPTIONS.map(priority => <option key={priority} value={priority}>{priority}</option>)}
+          </select>
+        </Field>
 
         <Field label="Activity">
           <input type="text" value={form.activity} onChange={e => set('activity', e.target.value)} style={inputStyle} />

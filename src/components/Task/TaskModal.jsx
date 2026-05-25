@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
 
 const STATUS_OPTIONS = ['not_started', 'in_progress', 'continuous', 'hold', 'completed']
+const PRIORITY_OPTIONS = ['High', 'medium', 'Low']
 
 export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
   const { tasks, departments, profiles, createTask } = useTasks()
@@ -28,7 +29,7 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
     return {
       activity: '', project_name: '', responsibility: '',
       department_id: '', owner_id: '', dependency: '',
-      status: 'not_started', start_date: today(), end_date: '',
+      status: 'not_started', priority: 'medium', start_date: today(), end_date: '',
       subtasks: [{ title: '', dependency: '' }],
     }
   }
@@ -77,6 +78,7 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
       await createTask({
         activity: form.activity,
         status: form.status,
+        priority: form.priority,
         department_id: departmentId,
         owner_id: ownerId || null,
         start_date: form.start_date || null,
@@ -110,6 +112,12 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
             </select>
           </Field>
         </div>
+
+        <Field label="Priority">
+          <select value={form.priority} onChange={e => set('priority', e.target.value)} style={inputStyle}>
+            {PRIORITY_OPTIONS.map(priority => <option key={priority} value={priority}>{priority}</option>)}
+          </select>
+        </Field>
 
         <Field label="Activity" required>
           <input type="text" required value={form.activity} onChange={e => set('activity', e.target.value)} style={inputStyle} />

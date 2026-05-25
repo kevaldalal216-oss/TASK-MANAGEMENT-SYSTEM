@@ -89,6 +89,7 @@ export default function TaskRow({ task, profiles = [], onClick, index }) {
       </td>
       <td style={tdStyle}>{task.responsibility ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
       <td style={tdStyle}><StatusBadge status={task.status} /></td>
+      <td style={tdStyle}><PriorityBadge priority={task.priority} /></td>
       <td style={{ ...tdStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
         {task.start_date ?? '—'}
       </td>
@@ -116,6 +117,32 @@ function StackedValues({ values }) {
   return (
     <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3 }}>
       {values.map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}
+    </span>
+  )
+}
+
+function PriorityBadge({ priority }) {
+  const styles = {
+    High: { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },
+    medium: { color: '#b45309', bg: '#fffbeb', border: '#fde68a' },
+    Low: { color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' },
+  }
+  const currentPriority = priority || 'medium'
+  const style = styles[currentPriority] ?? styles.medium
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '3px 8px',
+      borderRadius: 'var(--radius-badge)',
+      border: `1px solid ${style.border}`,
+      background: style.bg,
+      color: style.color,
+      fontSize: 11,
+      fontWeight: 700,
+    }}>
+      {currentPriority}
     </span>
   )
 }

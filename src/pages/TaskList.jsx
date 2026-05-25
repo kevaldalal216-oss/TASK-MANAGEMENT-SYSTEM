@@ -10,6 +10,7 @@ import TaskModal from '../components/Task/TaskModal'
 import Button from '../components/common/Button'
 
 const STATUSES = ['completed', 'in_progress', 'continuous', 'hold', 'not_started']
+const PRIORITIES = ['High', 'medium', 'Low']
 
 function projectName(task) {
   if (task.project?.name) return task.project.name
@@ -31,6 +32,7 @@ const COLUMNS = [
   { key: 'created_by', label: 'Assigned By' },
   { key: 'responsibility', label: 'Responsibility' },
   { key: 'status', label: 'Status' },
+  { key: 'priority', label: 'Priority' },
   { key: 'start_date', label: 'Start Date' },
   { key: 'end_date', label: 'End Date' },
   { key: 'dependency', label: 'Dependency' },
@@ -62,6 +64,7 @@ export default function TaskList() {
   const [search, setSearch] = useState('')
   const [filterDept, setFilterDept] = useState(searchParams.get('department_id') ?? '')
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') ?? '')
+  const [filterPriority, setFilterPriority] = useState(searchParams.get('priority') ?? '')
   const [filterOwner, setFilterOwner] = useState(searchParams.get('owner_id') ?? '')
   const [sort, setSort] = useState({ col: 'task_number', dir: 'asc' })
   const [selectedTask, setSelectedTask] = useState(null)
@@ -77,6 +80,7 @@ export default function TaskList() {
     if (search) base = base.filter(t => t.activity?.toLowerCase().includes(search.toLowerCase()))
     if (filterDept) base = base.filter(t => String(t.department_id) === filterDept)
     if (filterStatus) base = base.filter(t => t.status === filterStatus)
+    if (filterPriority) base = base.filter(t => t.priority === filterPriority)
     if (filterOwner) base = base.filter(t => t.owner_id === filterOwner)
 
     const today = new Date().toISOString().slice(0, 10)
@@ -90,14 +94,14 @@ export default function TaskList() {
       const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
       return sort.dir === 'asc' ? cmp : -cmp
     })
-  }, [tasks, tab, search, filterDept, filterStatus, filterOwner, sort, user, profile, profiles, searchParams])
+  }, [tasks, tab, search, filterDept, filterStatus, filterPriority, filterOwner, sort, user, profile, profiles, searchParams])
 
   function toggleSort(col) {
     setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
   }
 
   function clearFilters() {
-    setSearch(''); setFilterDept(''); setFilterStatus(''); setFilterOwner('')
+    setSearch(''); setFilterDept(''); setFilterStatus(''); setFilterPriority(''); setFilterOwner('')
   }
 
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -171,6 +175,10 @@ export default function TaskList() {
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: 140 }}>
             <option value="">All Statuses</option>
             {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+          </select>
+          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={{ ...inputStyle, width: 140 }}>
+            <option value="">All Priority</option>
+            {PRIORITIES.map(priority => <option key={priority} value={priority}>{priority}</option>)}
           </select>
           <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} style={{ ...inputStyle, width: 160 }}>
             <option value="">All Owners</option>
