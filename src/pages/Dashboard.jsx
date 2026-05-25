@@ -82,11 +82,12 @@ export default function Dashboard() {
     const total = tasks.length
     const completed = tasks.filter(t => t.status === 'completed').length
     const in_progress = tasks.filter(t => t.status === 'in_progress').length
+    const continuous = tasks.filter(t => t.status === 'continuous').length
     const hold = tasks.filter(t => t.status === 'hold').length
     const overdue = tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'completed').length
     const dueToday = tasks.filter(t => t.end_date === today && t.status !== 'completed').length
     const not_started = tasks.filter(t => t.status === 'not_started').length
-    return { total, completed, in_progress, hold, overdue, dueToday, not_started }
+    return { total, completed, in_progress, continuous, hold, overdue, dueToday, not_started }
   }, [tasks, today])
 
   const completionPct = kpis.total ? Math.round((kpis.completed / kpis.total) * 100) : 0
@@ -164,6 +165,7 @@ export default function Dashboard() {
     { label: 'Total Tasks',  value: kpis.total,       Icon: ListTodo,     color: '#2563eb', bg: '#eff6ff', status: null,           accent: 'var(--primary)' },
     { label: 'Completed',    value: kpis.completed,   Icon: CheckCircle2, color: '#059669', bg: '#ecfdf5', status: 'completed',    accent: '#10b981' },
     { label: 'In Progress',  value: kpis.in_progress, Icon: PlayCircle,   color: '#1d4ed8', bg: '#eff6ff', status: 'in_progress',  accent: '#3b82f6' },
+    { label: 'Continuous',   value: kpis.continuous,  Icon: Clock,        color: '#0e7490', bg: '#ecfeff', status: 'continuous',   accent: '#06b6d4' },
     { label: 'On Hold',      value: kpis.hold,        Icon: PauseCircle,  color: '#b45309', bg: '#fffbeb', status: 'hold',         accent: '#f59e0b' },
     { label: 'Overdue',      value: kpis.overdue,     Icon: AlertCircle,  color: '#b91c1c', bg: '#fef2f2', status: '_overdue',     accent: '#ef4444' },
     { label: 'Not Started',  value: kpis.not_started, Icon: CircleDashed, color: '#475569', bg: '#f1f5f9', status: 'not_started',  accent: '#94a3b8' },
@@ -291,6 +293,11 @@ export default function Dashboard() {
             {card.label === 'In Progress' && (
               <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-muted)' }}>
                 Across {departments.length} departments
+              </div>
+            )}
+            {card.label === 'Continuous' && (
+              <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-muted)' }}>
+                Ongoing recurring work
               </div>
             )}
             {card.label === 'On Hold' && (
