@@ -9,7 +9,7 @@ import TaskDetail from '../components/Task/TaskDetail'
 import TaskModal from '../components/Task/TaskModal'
 import Button from '../components/common/Button'
 
-const STATUSES = ['completed', 'in_progress', 'continuous', 'hold', 'not_started']
+const STATUS = ['completed', 'in_progress', 'continuous', 'hold', 'not_started']
 const PRIORITIES = ['High', 'medium', 'Low']
 
 function projectName(task) {
@@ -181,7 +181,7 @@ export default function TaskList() {
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: 140 }}>
             <option value="">All Status</option>
-            {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+            {STATUS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
           </select>
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={{ ...inputStyle, width: 140 }}>
             <option value="">All Priority</option>
