@@ -12,10 +12,9 @@ function projectName(task) {
   return ''
 }
 
-export default function TaskRow({ task, profiles = [], onClick, index }) {
+export default function TaskRow({ task, profiles = [], onClick, index, serialNumber }) {
   const project = projectName(task)
   const subtasks = splitLines(task.subtask)
-  const subtaskDependencies = splitLines(task.subtask_dependency)
   const assignedBy = profiles.find(profile => profile.id === task.created_by)
 
   return (
@@ -32,78 +31,54 @@ export default function TaskRow({ task, profiles = [], onClick, index }) {
       onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-container-low)'}
       onMouseLeave={e => e.currentTarget.style.background = '#fff'}
     >
-      <td style={{ ...tdStyle, fontFamily: 'var(--font-headline)', fontWeight: 600, color: 'var(--text-muted)', fontSize: 12 }}>
-        #{task.task_number}
+      <td style={serialTdStyle}>
+        {serialNumber}
       </td>
-      <td style={{ ...tdStyle, maxWidth: 280, fontWeight: 500, color: 'var(--on-surface)' }}>
+      <td style={tdStyle}>
+        {project || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+      </td>
+      <td style={activityTdStyle}>
         {task.activity}
       </td>
+      <td style={tdStyle}>
+        {subtasks.length ? <StackedValues values={subtasks} /> : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+      </td>
       <td style={tdStyle}><PriorityBadge priority={task.priority} /></td>
-      <td style={tdStyle}>
-        {project || <span style={{ color: 'var(--text-muted)' }}>—</span>}
+      <td style={dateTdStyle}>
+        {task.start_date ?? '-'}
       </td>
-      <td style={tdStyle}>
-        {task.department?.name
-          ? <span style={{
-              padding: '3px 8px',
-              background: 'var(--surface-container)',
-              color: 'var(--text-secondary)',
-              borderRadius: 4,
-              fontSize: 11, fontWeight: 600,
-            }}>{task.department.name}</span>
-          : <span style={{ color: 'var(--text-muted)' }}>—</span>
-        }
+      <td style={dateTdStyle}>
+        {task.end_date ?? '-'}
       </td>
+      <td style={tdStyle}><StatusBadge status={task.status} /></td>
+      <td style={tdStyle}>{task.responsibility ?? <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
       <td style={tdStyle}>
         {task.owner?.full_name
           ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                color: '#fff', fontSize: 9, fontWeight: 700,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'var(--font-headline)',
-              }}>{initialsOf(task.owner.full_name)}</span>
+            <span style={personStyle}>
+              <span style={ownerAvatarStyle}>{initialsOf(task.owner.full_name)}</span>
               <span style={{ fontSize: 13 }}>{task.owner.full_name}</span>
             </span>
           )
-          : <span style={{ color: 'var(--text-muted)' }}>—</span>
+          : <span style={{ color: 'var(--text-muted)' }}>-</span>
         }
       </td>
       <td style={tdStyle}>
         {assignedBy?.full_name
           ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%',
-                background: 'var(--surface-container-high)',
-                color: 'var(--text-secondary)', fontSize: 9, fontWeight: 700,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'var(--font-headline)',
-              }}>{initialsOf(assignedBy.full_name)}</span>
+            <span style={personStyle}>
+              <span style={assignedByAvatarStyle}>{initialsOf(assignedBy.full_name)}</span>
               <span style={{ fontSize: 13 }}>{assignedBy.full_name}</span>
             </span>
           )
-          : <span style={{ color: 'var(--text-muted)' }}>—</span>
+          : <span style={{ color: 'var(--text-muted)' }}>-</span>
         }
       </td>
-      <td style={tdStyle}>{task.responsibility ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-      <td style={tdStyle}><StatusBadge status={task.status} /></td>
-      <td style={{ ...tdStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
-        {task.start_date ?? '—'}
-      </td>
-      <td style={{ ...tdStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--text-secondary)' }}>
-        {task.end_date ?? '—'}
-      </td>
-      <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: 12 }}>
-        {task.dependency ?? '—'}
-      </td>
       <td style={tdStyle}>
-        {subtasks.length ? <StackedValues values={subtasks} /> : <span style={{ color: 'var(--text-muted)' }}>-</span>}
-      </td>
-      <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: 12 }}>
-        {subtaskDependencies.length ? <StackedValues values={subtaskDependencies} /> : '-'}
+        {task.department?.name
+          ? <span style={departmentBadgeStyle}>{task.department.name}</span>
+          : <span style={{ color: 'var(--text-muted)' }}>-</span>
+        }
       </td>
     </tr>
   )
@@ -154,4 +129,72 @@ const tdStyle = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+}
+
+const serialTdStyle = {
+  ...tdStyle,
+  width: 56,
+  minWidth: 56,
+  maxWidth: 56,
+  textAlign: 'center',
+  fontFamily: 'var(--font-headline)',
+  fontSize: 12,
+  fontWeight: 700,
+  color: 'var(--text-muted)',
+}
+
+const dateTdStyle = {
+  ...tdStyle,
+  fontFamily: 'JetBrains Mono, monospace',
+  fontSize: 12,
+  color: 'var(--text-secondary)',
+}
+
+const activityTdStyle = {
+  ...tdStyle,
+  minWidth: 260,
+  maxWidth: 420,
+  fontWeight: 500,
+  lineHeight: 1.45,
+  color: 'var(--on-surface)',
+  whiteSpace: 'normal',
+  overflow: 'visible',
+  textOverflow: 'clip',
+  overflowWrap: 'anywhere',
+  wordBreak: 'normal',
+}
+
+const personStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+}
+
+const ownerAvatarStyle = {
+  width: 22,
+  height: 22,
+  borderRadius: '50%',
+  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+  color: '#fff',
+  fontSize: 9,
+  fontWeight: 700,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontFamily: 'var(--font-headline)',
+}
+
+const assignedByAvatarStyle = {
+  ...ownerAvatarStyle,
+  background: 'var(--surface-container-high)',
+  color: 'var(--text-secondary)',
+}
+
+const departmentBadgeStyle = {
+  padding: '3px 8px',
+  background: 'var(--surface-container)',
+  color: 'var(--text-secondary)',
+  borderRadius: 4,
+  fontSize: 11,
+  fontWeight: 600,
 }

@@ -23,21 +23,27 @@ function assignedByName(task, profiles) {
   return profiles.find(profile => profile.id === task.created_by)?.full_name ?? ''
 }
 
+function ownerName(task) {
+  return task.owner?.full_name ?? ''
+}
+
+function departmentName(task) {
+  return task.department?.name ?? ''
+}
+
 const COLUMNS = [
-  { key: 'task_number', label: '#' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'priority', label: 'Priority' },
+  { key: 'serial', label: '#', sortable: false },
   { key: 'project', label: 'Project', sortValue: projectName },
-  { key: 'department_id', label: 'Department' },
-  { key: 'owner_id', label: 'Owner' },
-  { key: 'created_by', label: 'Assigned By' },
-  { key: 'responsibility', label: 'Responsibility' },
-  { key: 'status', label: 'Status' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'subtask', label: 'Sub Task' },
+  { key: 'priority', label: 'Priority' },
   { key: 'start_date', label: 'Start Date' },
   { key: 'end_date', label: 'End Date' },
-  { key: 'dependency', label: 'Dependency' },
-  { key: 'subtask', label: 'Subtask' },
-  { key: 'subtask_dependency', label: 'Subtask Dependency' },
+  { key: 'status', label: 'Status' },
+  { key: 'responsibility', label: 'Responsibility' },
+  { key: 'owner_id', label: 'Owner', sortValue: ownerName },
+  { key: 'created_by', label: 'Assign By' },
+  { key: 'department_id', label: 'Department', sortValue: departmentName },
 ]
 
 function defaultTab(role) {
@@ -66,7 +72,7 @@ export default function TaskList() {
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') ?? '')
   const [filterPriority, setFilterPriority] = useState(searchParams.get('priority') ?? '')
   const [filterOwner, setFilterOwner] = useState(searchParams.get('owner_id') ?? '')
-  const [sort, setSort] = useState({ col: 'task_number', dir: 'asc' })
+  const [sort, setSort] = useState({ col: 'project', dir: 'asc' })
   const [selectedTask, setSelectedTask] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [createMode, setCreateMode] = useState('add')
@@ -97,6 +103,7 @@ export default function TaskList() {
   }, [tasks, tab, search, filterDept, filterStatus, filterPriority, filterOwner, sort, user, profile, profiles, searchParams])
 
   function toggleSort(col) {
+    if (COLUMNS.find(column => column.key === col)?.sortable === false) return
     setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
   }
 
@@ -209,7 +216,7 @@ export default function TaskList() {
             boxShadow: 'var(--shadow-card)',
             background: '#fff',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', minWidth: 1340, borderCollapse: 'collapse', tableLayout: 'auto' }}>
               <thead>
                 <tr>
                   {COLUMNS.map(col => (
@@ -221,17 +228,20 @@ export default function TaskList() {
                         textTransform: 'uppercase', letterSpacing: '0.05em',
                         color: 'var(--text-muted)',
                         background: 'var(--surface-container-low)',
-                        textAlign: 'left', cursor: 'pointer', whiteSpace: 'nowrap',
+                        textAlign: col.key === 'serial' ? 'center' : 'left',
+                        cursor: col.sortable === false ? 'default' : 'pointer',
+                        whiteSpace: 'nowrap',
                         borderBottom: '1px solid var(--outline-variant)',
                         userSelect: 'none',
                         transition: 'color 0.15s',
+                        ...(col.key === 'serial' ? { width: 56, minWidth: 56, maxWidth: 56 } : {}),
                       }}
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--on-surface)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: col.key === 'serial' ? 'center' : 'flex-start', gap: 4, width: col.key === 'serial' ? '100%' : 'auto' }}>
                         {col.label}
-                        {sort.col === col.key
+                        {col.sortable !== false && sort.col === col.key
                           ? sort.dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
                           : null}
                       </span>
@@ -252,7 +262,7 @@ export default function TaskList() {
                   </tr>
                 ) : (
                   filtered.map((task, i) => (
-                    <TaskRow key={task.id} task={task} profiles={profiles} index={i} onClick={setSelectedTask} />
+                    <TaskRow key={task.id} task={task} profiles={profiles} index={i} serialNumber={i + 1} onClick={setSelectedTask} />
                   ))
                 )}
               </tbody>
