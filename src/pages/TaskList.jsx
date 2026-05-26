@@ -180,7 +180,7 @@ export default function TaskList() {
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: 140 }}>
-            <option value="">All Statuses</option>
+            <option value="">All Status</option>
             {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
           </select>
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={{ ...inputStyle, width: 140 }}>
