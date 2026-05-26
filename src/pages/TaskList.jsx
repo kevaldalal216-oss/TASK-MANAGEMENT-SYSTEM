@@ -32,16 +32,16 @@ function departmentName(task) {
 }
 
 const COLUMNS = [
-  { key: 'serial', label: '#', sortable: false },
+  { key: 'task_no', label: 'Task No.', sortable: false },
   { key: 'project', label: 'Project', sortValue: projectName },
+  { key: 'owner_id', label: 'Owner', sortValue: ownerName },
   { key: 'activity', label: 'Activity' },
-  { key: 'subtask', label: 'Sub Task' },
+  { key: 'subtask', label: 'Sub Task', width: 320 },
   { key: 'priority', label: 'Priority' },
   { key: 'start_date', label: 'Start Date' },
   { key: 'end_date', label: 'End Date' },
   { key: 'status', label: 'Status' },
   { key: 'responsibility', label: 'Responsibility' },
-  { key: 'owner_id', label: 'Owner', sortValue: ownerName },
   { key: 'created_by', label: 'Assign By' },
   { key: 'department_id', label: 'Department', sortValue: departmentName },
 ]
@@ -228,18 +228,19 @@ export default function TaskList() {
                         textTransform: 'uppercase', letterSpacing: '0.05em',
                         color: 'var(--text-muted)',
                         background: 'var(--surface-container-low)',
-                        textAlign: col.key === 'serial' ? 'center' : 'left',
+                        textAlign: col.key === 'task_no' ? 'center' : 'left',
                         cursor: col.sortable === false ? 'default' : 'pointer',
                         whiteSpace: 'nowrap',
                         borderBottom: '1px solid var(--outline-variant)',
                         userSelect: 'none',
                         transition: 'color 0.15s',
-                        ...(col.key === 'serial' ? { width: 56, minWidth: 56, maxWidth: 56 } : {}),
+                        ...(col.key === 'task_no' ? { width: 72, minWidth: 72, maxWidth: 72 } : {}),
+                        ...(col.width ? { width: col.width, minWidth: col.width } : {}),
                       }}
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--on-surface)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: col.key === 'serial' ? 'center' : 'flex-start', gap: 4, width: col.key === 'serial' ? '100%' : 'auto' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: col.key === 'task_no' ? 'center' : 'flex-start', gap: 4, width: col.key === 'task_no' ? '100%' : 'auto' }}>
                         {col.label}
                         {col.sortable !== false && sort.col === col.key
                           ? sort.dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
@@ -262,7 +263,7 @@ export default function TaskList() {
                   </tr>
                 ) : (
                   filtered.map((task, i) => (
-                    <TaskRow key={task.id} task={task} profiles={profiles} index={i} serialNumber={i + 1} onClick={setSelectedTask} />
+                    <TaskRow key={task.id} task={task} profiles={profiles} index={i} taskNumber={i + 1} onClick={setSelectedTask} />
                   ))
                 )}
               </tbody>
