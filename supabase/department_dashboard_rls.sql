@@ -22,6 +22,19 @@ as $$
   where id = auth.uid()
 $$;
 
+create or replace function public.current_user_department_name()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select d.name
+  from public.profiles p
+  join public.departments d on d.id = p.department_id
+  where p.id = auth.uid()
+$$;
+
 create or replace function public.current_user_is_admin()
 returns boolean
 language sql
@@ -44,6 +57,7 @@ to authenticated
 using (
   public.current_user_is_admin()
   or department_id = public.current_user_department_id()
+  or dependency = public.current_user_department_name()
 );
 
 drop policy if exists "department scoped task insert" on public.tasks;
@@ -88,6 +102,12 @@ to authenticated
 using (
   public.current_user_is_admin()
   or id = public.current_user_department_id()
+  or exists (
+    select 1
+    from public.tasks t
+    where t.department_id = public.departments.id
+      and t.dependency = public.current_user_department_name()
+  )
 );
 
 drop policy if exists "admin department write" on public.departments;
@@ -107,6 +127,12 @@ using (
   id = auth.uid()
   or public.current_user_is_admin()
   or department_id = public.current_user_department_id()
+  or exists (
+    select 1
+    from public.tasks t
+    where t.owner_id = public.profiles.id
+      and t.dependency = public.current_user_department_name()
+  )
 );
 
 drop policy if exists "admin profile write" on public.profiles;

@@ -5,6 +5,10 @@ import { useAuth } from './AuthContext'
 const TaskContext = createContext(null)
 const adminRoles = ['super_admin', 'admin']
 
+function normalizeDependency(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 export function TaskProvider({ children }) {
   const { user, profile } = useAuth()
   const [tasks, setTasks] = useState([])
@@ -18,29 +22,67 @@ export function TaskProvider({ children }) {
 
     const isAdmin = adminRoles.includes(profile.role)
     const currentDepartmentId = profile.department_id
+    let currentDepartmentName = null
 
     async function loadAll() {
       setLoading(true)
-      let tasksQuery = supabase
-        .from('tasks')
-        .select(TASK_SELECT)
-        .order('task_number', { ascending: true })
       let deptQuery = supabase.from('departments').select('*')
       let profilesQuery = supabase.from('profiles').select('*, department:departments(name)')
 
-      if (!isAdmin) {
-        tasksQuery = currentDepartmentId == null ? null : tasksQuery.eq('department_id', currentDepartmentId)
-        deptQuery = currentDepartmentId == null ? null : deptQuery.eq('id', currentDepartmentId)
-        profilesQuery = currentDepartmentId == null ? null : profilesQuery.eq('department_id', currentDepartmentId)
+      if (isAdmin) {
+        const [tasksRes, deptRes, profilesRes] = await Promise.all([
+          supabase
+            .from('tasks')
+            .select(TASK_SELECT)
+            .order('task_number', { ascending: true }),
+          deptQuery,
+          profilesQuery,
+        ])
+        if (!tasksRes.error) setTasks(tasksRes.data)
+        if (!deptRes.error) setDepartments(deptRes.data)
+        if (!profilesRes.error) setProfiles(profilesRes.data)
+        setLoading(false)
+        return
       }
 
-      const [tasksRes, deptRes, profilesRes] = await Promise.all([
-        tasksQuery ? tasksQuery : Promise.resolve({ data: [], error: null }),
-        deptQuery ? deptQuery : Promise.resolve({ data: [], error: null }),
-        profilesQuery ? profilesQuery : Promise.resolve({ data: [], error: null }),
-      ])
-      if (!tasksRes.error) setTasks(tasksRes.data)
+      if (currentDepartmentId == null) {
+        setTasks([])
+        setDepartments([])
+        setProfiles([])
+        setLoading(false)
+        return
+      }
+
+      deptQuery = deptQuery.eq('id', currentDepartmentId)
+      profilesQuery = profilesQuery.eq('department_id', currentDepartmentId)
+
+      const deptRes = await deptQuery
       if (!deptRes.error) setDepartments(deptRes.data)
+      currentDepartmentName = deptRes.data?.[0]?.name ?? null
+
+      const ownedTasksQuery = supabase
+        .from('tasks')
+        .select(TASK_SELECT)
+        .eq('department_id', currentDepartmentId)
+        .order('task_number', { ascending: true })
+      const dependentTasksQuery = currentDepartmentName
+        ? supabase
+          .from('tasks')
+          .select(TASK_SELECT)
+          .eq('dependency', currentDepartmentName)
+          .neq('department_id', currentDepartmentId)
+          .order('task_number', { ascending: true })
+        : Promise.resolve({ data: [], error: null })
+
+      const [ownedTasksRes, dependentTasksRes, profilesRes] = await Promise.all([
+        ownedTasksQuery,
+        dependentTasksQuery,
+        profilesQuery,
+      ])
+      const taskMap = new Map()
+      if (!ownedTasksRes.error) ownedTasksRes.data.forEach(task => taskMap.set(task.id, task))
+      if (!dependentTasksRes.error) dependentTasksRes.data.forEach(task => taskMap.set(task.id, task))
+      setTasks(sortByTaskNumber([...taskMap.values()]))
       if (!profilesRes.error) setProfiles(profilesRes.data)
       setLoading(false)
     }
@@ -56,7 +98,12 @@ export function TaskProvider({ children }) {
         .eq('id', id)
         .single()
       if (error) return null
-      if (!isAdmin && Number(data.department_id) !== Number(currentDepartmentId)) return null
+      if (!isAdmin) {
+        const sameDepartment = Number(data.department_id) === Number(currentDepartmentId)
+        const dependentOnCurrentDepartment = currentDepartmentName
+          && normalizeDependency(data.dependency) === normalizeDependency(currentDepartmentName)
+        if (!sameDepartment && !dependentOnCurrentDepartment) return null
+      }
       return data
     }
 

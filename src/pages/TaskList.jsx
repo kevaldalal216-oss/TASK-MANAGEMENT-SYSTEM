@@ -8,6 +8,7 @@ import TaskRow from '../components/Task/TaskRow'
 import TaskDetail from '../components/Task/TaskDetail'
 import TaskModal from '../components/Task/TaskModal'
 import Button from '../components/common/Button'
+import StatusBadge from '../components/common/StatusBadge'
 
 const STATUS = ['completed', 'in_progress', 'continuous', 'hold', 'not_started']
 const PRIORITIES = ['High', 'medium', 'Low']
@@ -29,6 +30,16 @@ function ownerName(task) {
 
 function departmentName(task) {
   return task.department?.name ?? ''
+}
+
+function normalizeDependency(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function dependencyDepartment(task, departments) {
+  const dependency = normalizeDependency(task.dependency)
+  if (!dependency) return null
+  return departments.find(department => normalizeDependency(department.name) === dependency) ?? null
 }
 
 const COLUMNS = [
@@ -54,7 +65,7 @@ function defaultTab(role) {
 function queryTab(role, requestedTab) {
   const isAdmin = role === 'admin' || role === 'super_admin'
   if (requestedTab === 'all' && isAdmin) return 'all'
-  if (requestedTab === 'dept' || requestedTab === 'mine') return requestedTab
+  if (requestedTab === 'dept' || requestedTab === 'mine' || requestedTab === 'dependencies') return requestedTab
   return null
 }
 
@@ -76,14 +87,36 @@ export default function TaskList() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [createMode, setCreateMode] = useState('add')
+  const isAdmin = role === 'admin' || role === 'super_admin'
+
+  const teamDependencies = useMemo(() => {
+    const currentDepartment = departments.find(department => Number(department.id) === Number(profile?.department_id))
+
+    return tasks
+      .map(task => ({ task, dependencyDepartment: dependencyDepartment(task, departments) }))
+      .filter(({ task, dependencyDepartment }) => {
+        if (!dependencyDepartment) return false
+        if (Number(task.department_id) === Number(dependencyDepartment.id)) return false
+        if (isAdmin) return true
+        return currentDepartment && Number(dependencyDepartment.id) === Number(currentDepartment.id)
+      })
+  }, [tasks, departments, profile, isAdmin])
 
   const filtered = useMemo(() => {
-    let base = tasks
+    let base = tab === 'dependencies' ? teamDependencies.map(item => item.task) : tasks
 
     if (tab === 'mine') base = base.filter(t => t.owner_id === user?.id)
     else if (tab === 'dept') base = base.filter(t => t.department_id === profile?.department_id)
 
-    if (search) base = base.filter(t => t.activity?.toLowerCase().includes(search.toLowerCase()))
+    if (search) {
+      const needle = search.toLowerCase()
+      base = base.filter(t =>
+        t.activity?.toLowerCase().includes(needle)
+        || t.dependency?.toLowerCase().includes(needle)
+        || t.owner?.full_name?.toLowerCase().includes(needle)
+        || t.department?.name?.toLowerCase().includes(needle)
+      )
+    }
     if (filterDept) base = base.filter(t => String(t.department_id) === filterDept)
     if (filterStatus) base = base.filter(t => t.status === filterStatus)
     if (filterPriority) base = base.filter(t => t.priority === filterPriority)
@@ -94,13 +127,19 @@ export default function TaskList() {
       base = base.filter(t => t.end_date && t.end_date < today && t.status !== 'completed')
 
     return [...base].sort((a, b) => {
+      if (tab === 'dependencies') {
+        const dependencyA = dependencyDepartment(a, departments)?.name ?? a.dependency ?? ''
+        const dependencyB = dependencyDepartment(b, departments)?.name ?? b.dependency ?? ''
+        const dependencyCmp = String(dependencyA).localeCompare(String(dependencyB))
+        if (dependencyCmp !== 0) return dependencyCmp
+      }
       const column = COLUMNS.find(col => col.key === sort.col)
       const va = sort.col === 'created_by' ? assignedByName(a, profiles) : column?.sortValue ? column.sortValue(a) : a[sort.col] ?? ''
       const vb = sort.col === 'created_by' ? assignedByName(b, profiles) : column?.sortValue ? column.sortValue(b) : b[sort.col] ?? ''
       const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
       return sort.dir === 'asc' ? cmp : -cmp
     })
-  }, [tasks, tab, search, filterDept, filterStatus, filterPriority, filterOwner, sort, user, profile, profiles, searchParams])
+  }, [tasks, teamDependencies, tab, search, filterDept, filterStatus, filterPriority, filterOwner, sort, user, profile, profiles, departments, searchParams])
 
   function toggleSort(col) {
     if (COLUMNS.find(column => column.key === col)?.sortable === false) return
@@ -111,7 +150,6 @@ export default function TaskList() {
     setSearch(''); setFilterDept(''); setFilterStatus(''); setFilterPriority(''); setFilterOwner('')
   }
 
-  const isAdmin = role === 'admin' || role === 'super_admin'
   function openCreate(mode) {
     setCreateMode(mode)
     setShowCreate(true)
@@ -138,6 +176,7 @@ export default function TaskList() {
           {[
             { key: 'mine', label: 'My Tasks', show: true },
             { key: 'dept', label: 'Dept Tasks', show: true },
+            { key: 'dependencies', label: 'Team Dependencies', show: true },
             { key: 'all', label: 'All Tasks', show: isAdmin },
           ].filter(t => t.show).map(t => (
             <button
@@ -201,13 +240,20 @@ export default function TaskList() {
             background: 'var(--surface-container)',
             borderRadius: 'var(--radius-badge)',
           }}>
-            {filtered.length} task{filtered.length !== 1 ? 's' : ''}
+            {filtered.length} {tab === 'dependencies'
+              ? `dependenc${filtered.length === 1 ? 'y' : 'ies'}`
+              : `task${filtered.length === 1 ? '' : 's'}`}
           </span>
         </div>
 
         {/* Table */}
         {loading ? (
           <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+        ) : tab === 'dependencies' ? (
+          <TeamDependenciesTable
+            dependencies={filtered.map(task => ({ task, dependencyDepartment: dependencyDepartment(task, departments) }))}
+            onClick={setSelectedTask}
+          />
         ) : (
           <div style={{
             overflowX: 'auto',
@@ -288,4 +334,117 @@ const inputStyle = {
   color: 'var(--text-primary)',
   background: '#fff',
   transition: 'all 0.15s',
+}
+
+function TeamDependenciesTable({ dependencies, onClick }) {
+  const columns = ['Task Name', 'Dependent Task', 'Owner', 'Status', 'Department']
+
+  return (
+    <div style={{
+      overflowX: 'auto',
+      borderRadius: 'var(--radius-card)',
+      border: '1px solid var(--outline-variant)',
+      boxShadow: 'var(--shadow-card)',
+      background: '#fff',
+    }}>
+      <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse', tableLayout: 'auto' }}>
+        <thead>
+          <tr>
+            {columns.map(column => (
+              <th key={column} style={dependencyThStyle}>
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dependencies.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <Search size={32} opacity={0.3} />
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>No team dependencies found</span>
+                  <span style={{ fontSize: 12 }}>Dependency changes will appear here automatically</span>
+                </div>
+              </td>
+            </tr>
+          ) : (
+            dependencies.map(({ task, dependencyDepartment }) => (
+              <tr
+                key={task.id}
+                onClick={() => onClick(task)}
+                style={{
+                  cursor: 'pointer',
+                  borderBottom: '1px solid var(--outline-variant)',
+                  background: '#fff',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-container-low)'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+              >
+                <td style={dependencyActivityTdStyle}>
+                  {dependencyDepartment?.name ?? task.dependency ?? '-'}
+                </td>
+                <td style={dependencyActivityTdStyle}>
+                  {task.activity || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                </td>
+                <td style={dependencyTdStyle}>
+                  {task.owner?.full_name || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                </td>
+                <td style={dependencyTdStyle}>
+                  <StatusBadge status={task.status} />
+                </td>
+                <td style={dependencyTdStyle}>
+                  {task.department?.name
+                    ? <span style={departmentBadgeStyle}>{task.department.name}</span>
+                    : <span style={{ color: 'var(--text-muted)' }}>-</span>
+                  }
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+const dependencyThStyle = {
+  padding: '12px 14px',
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: 'var(--text-muted)',
+  background: 'var(--surface-container-low)',
+  textAlign: 'left',
+  whiteSpace: 'nowrap',
+  borderBottom: '1px solid var(--outline-variant)',
+}
+
+const dependencyTdStyle = {
+  padding: '12px 14px',
+  fontSize: 13,
+  color: 'var(--text-primary)',
+  whiteSpace: 'nowrap',
+}
+
+const dependencyActivityTdStyle = {
+  ...dependencyTdStyle,
+  minWidth: 240,
+  maxWidth: 420,
+  fontWeight: 500,
+  lineHeight: 1.45,
+  color: 'var(--on-surface)',
+  whiteSpace: 'normal',
+  overflowWrap: 'anywhere',
+}
+
+const departmentBadgeStyle = {
+  padding: '3px 8px',
+  background: 'var(--surface-container)',
+  color: 'var(--text-secondary)',
+  borderRadius: 4,
+  fontSize: 11,
+  fontWeight: 600,
 }
