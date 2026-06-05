@@ -1,5 +1,32 @@
 import StatusBadge from '../common/StatusBadge'
 
+export function parseSubtaskCompletion(value, count) {
+  if (Array.isArray(value)) {
+    return Array.from({ length: count }, (_, index) => Boolean(value[index]))
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    if (normalized.startsWith('{') && normalized.endsWith('}')) {
+      const items = normalized.slice(1, -1).split(',')
+      return Array.from({ length: count }, (_, index) => ['true', 't', '1'].includes(String(items[index] ?? '').trim().toLowerCase()))
+    }
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) return parseSubtaskCompletion(parsed, count)
+    } catch {
+      return Array.from({ length: count }, () => false)
+    }
+  }
+  return Array.from({ length: count }, () => false)
+}
+
+export function taskProgress(task) {
+  const subtasks = splitLines(task.subtask)
+  if (!subtasks.length) return task.status === 'completed' ? 100 : 0
+  const completed = parseSubtaskCompletion(task.subtask_completed, subtasks.length).filter(Boolean).length
+  return Math.round((completed / subtasks.length) * 100)
+}
+
 function initialsOf(name) {
   if (!name) return ''
   return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
@@ -12,9 +39,11 @@ function projectName(task) {
   return ''
 }
 
-export default function TaskRow({ task, profiles = [], onClick, index, taskNumber }) {
+export default function TaskRow({ task, profiles = [], onClick, index, taskNumber, onToggleSubtask }) {
   const project = projectName(task)
   const subtasks = splitLines(task.subtask)
+  const completedSubtasks = parseSubtaskCompletion(task.subtask_completed, subtasks.length)
+  const progress = taskProgress(task)
   const assignedBy = profiles.find(profile => profile.id === task.created_by)
 
   return (
@@ -63,6 +92,9 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
           {task.end_date ?? '-'}
         </td>
         <td style={tdStyle}><StatusBadge status={task.status} /></td>
+        <td style={progressTdStyle}>
+          <ProgressBar value={progress} />
+        </td>
         <td style={tdStyle}>{task.responsibility ?? <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
         <td style={tdStyle}>
           {assignedBy?.full_name
@@ -105,12 +137,25 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskTdStyle}>
-            {subtask}
+            <label style={subtaskCheckLabelStyle} onClick={e => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={completedSubtasks[subtaskIndex]}
+                onChange={e => onToggleSubtask?.(task, subtaskIndex, e.target.checked)}
+                style={checkboxStyle}
+              />
+              <span style={completedSubtasks[subtaskIndex] ? completedSubtaskTextStyle : undefined}>
+                {subtask}
+              </span>
+            </label>
           </td>
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
+          <td style={subtaskProgressTdStyle}>
+            {subtaskIndex === 0 ? <ProgressBar value={progress} compact /> : null}
+          </td>
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
@@ -120,8 +165,19 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
   )
 }
 
-function splitLines(value) {
+export function splitLines(value) {
   return String(value ?? '').split('\n').map(item => item.trim()).filter(Boolean)
+}
+
+function ProgressBar({ value, compact = false }) {
+  return (
+    <div style={compact ? compactProgressWrapStyle : progressWrapStyle}>
+      <div style={progressTrackStyle}>
+        <div style={{ ...progressFillStyle, width: `${value}%` }} />
+      </div>
+      <span style={progressTextStyle}>{value}%</span>
+    </div>
+  )
 }
 
 function PriorityBadge({ priority }) {
@@ -217,6 +273,75 @@ const subtaskBlankTdStyle = {
   paddingTop: 9,
   paddingBottom: 9,
   color: 'var(--text-muted)',
+}
+
+const progressTdStyle = {
+  ...tdStyle,
+  minWidth: 150,
+  width: 150,
+}
+
+const subtaskProgressTdStyle = {
+  ...subtaskBlankTdStyle,
+  minWidth: 150,
+  width: 150,
+}
+
+const progressWrapStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  minWidth: 122,
+}
+
+const compactProgressWrapStyle = {
+  ...progressWrapStyle,
+  opacity: 0.82,
+}
+
+const progressTrackStyle = {
+  width: 78,
+  height: 8,
+  borderRadius: 999,
+  background: 'var(--surface-container-high)',
+  overflow: 'hidden',
+  flexShrink: 0,
+}
+
+const progressFillStyle = {
+  height: '100%',
+  borderRadius: 999,
+  background: 'linear-gradient(90deg, #14b8a6, #22c55e)',
+  transition: 'width 0.2s ease',
+}
+
+const progressTextStyle = {
+  width: 36,
+  fontSize: 12,
+  fontWeight: 700,
+  color: 'var(--text-secondary)',
+  fontVariantNumeric: 'tabular-nums',
+}
+
+const subtaskCheckLabelStyle = {
+  display: 'inline-flex',
+  alignItems: 'flex-start',
+  gap: 8,
+  cursor: 'pointer',
+  maxWidth: '100%',
+}
+
+const checkboxStyle = {
+  width: 16,
+  height: 16,
+  marginTop: 2,
+  accentColor: '#0f766e',
+  flexShrink: 0,
+}
+
+const completedSubtaskTextStyle = {
+  color: 'var(--text-muted)',
+  textDecoration: 'line-through',
 }
 
 const personStyle = {

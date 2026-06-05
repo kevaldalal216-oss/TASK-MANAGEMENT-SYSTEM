@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, X, Search } from 'lucide-react'
 import { useTasks } from '../context/TaskContext'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import Topbar from '../components/Layout/Topbar'
-import TaskRow from '../components/Task/TaskRow'
+import TaskRow, { parseSubtaskCompletion, splitLines, taskProgress } from '../components/Task/TaskRow'
 import TaskDetail from '../components/Task/TaskDetail'
 import TaskModal from '../components/Task/TaskModal'
 import Button from '../components/common/Button'
@@ -52,6 +53,7 @@ const COLUMNS = [
   { key: 'start_date', label: 'Start Date' },
   { key: 'end_date', label: 'End Date' },
   { key: 'status', label: 'Status' },
+  { key: 'progress', label: 'Progress', sortValue: taskProgress, width: 150 },
   { key: 'responsibility', label: 'Responsibility' },
   { key: 'created_by', label: 'Assign By' },
   { key: 'department_id', label: 'Department', sortValue: departmentName },
@@ -70,8 +72,9 @@ function queryTab(role, requestedTab) {
 }
 
 export default function TaskList() {
-  const { tasks, departments, profiles, loading } = useTasks()
+  const { tasks, departments, profiles, loading, updateTask } = useTasks()
   const { user, role, profile } = useAuth()
+  const { showToast } = useToast()
   const [searchParams] = useSearchParams()
 
   const [tabOverride, setTabOverride] = useState(() => queryTab(role, searchParams.get('tab')))
@@ -87,6 +90,7 @@ export default function TaskList() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [createMode, setCreateMode] = useState('add')
+  const [taskOverrides, setTaskOverrides] = useState({})
   const isAdmin = role === 'admin' || role === 'super_admin'
 
   const teamDependencies = useMemo(() => {
@@ -153,6 +157,36 @@ export default function TaskList() {
   function openCreate(mode) {
     setCreateMode(mode)
     setShowCreate(true)
+  }
+
+  async function toggleSubtask(task, subtaskIndex, completed) {
+    const subtasks = splitLines(task.subtask)
+    const completedSubtasks = parseSubtaskCompletion(task.subtask_completed, subtasks.length)
+    completedSubtasks[subtaskIndex] = completed
+    const allCompleted = subtasks.length > 0 && completedSubtasks.every(Boolean)
+    const status = allCompleted ? 'completed' : task.status === 'completed' ? 'in_progress' : task.status
+    const optimisticTask = { ...task, subtask_completed: completedSubtasks, status }
+
+    setTaskOverrides(prev => ({ ...prev, [task.id]: optimisticTask }))
+
+    try {
+      await updateTask(task.id, {
+        subtask_completed: completedSubtasks,
+        status,
+      })
+      setTaskOverrides(prev => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+    } catch (err) {
+      setTaskOverrides(prev => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+      showToast(err.message, 'error')
+    }
   }
 
   return (
@@ -309,7 +343,15 @@ export default function TaskList() {
                   </tr>
                 ) : (
                   filtered.map((task, i) => (
-                    <TaskRow key={task.id} task={task} profiles={profiles} index={i} taskNumber={i + 1} onClick={setSelectedTask} />
+                    <TaskRow
+                      key={task.id}
+                      task={taskOverrides[task.id] ?? task}
+                      profiles={profiles}
+                      index={i}
+                      taskNumber={i + 1}
+                      onClick={setSelectedTask}
+                      onToggleSubtask={toggleSubtask}
+                    />
                   ))
                 )}
               </tbody>

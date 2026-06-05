@@ -12,7 +12,7 @@ export default function TaskDetail({ task, onClose }) {
   const { departments, profiles, updateTask, deleteTask, canDeleteTask } = useTasks()
   const { showToast } = useToast()
   const { user, role, profile } = useAuth()
-  const [form, setForm] = useState({ ...task, subtasks: parseSubtasks(task.subtask, task.subtask_dependency) })
+  const [form, setForm] = useState({ ...task, subtasks: parseSubtasks(task.subtask, task.subtask_dependency, task.subtask_completed) })
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -30,14 +30,14 @@ export default function TaskDetail({ task, onClose }) {
   }
 
   function addSubtask() {
-    setForm(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: '', dependency: '' }] }))
+    setForm(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: '', dependency: '', completed: false }] }))
   }
 
   function removeSubtask(index) {
     setForm(prev => ({
       ...prev,
       subtasks: prev.subtasks.length === 1
-        ? [{ title: '', dependency: '' }]
+        ? [{ title: '', dependency: '', completed: false }]
         : prev.subtasks.filter((_, i) => i !== index),
     }))
   }
@@ -58,6 +58,12 @@ export default function TaskDetail({ task, onClose }) {
         : (currentProfile?.department_id ? Number(currentProfile.department_id) : null)
       const ownerId = isAdmin ? (form.owner_id || null) : user?.id
       const responsibility = isAdmin ? form.responsibility : (currentProfile?.full_name ?? user?.email ?? '')
+      const allCompleted = subtasks.length > 0 && subtasks.every(subtask => subtask.completed)
+      const status = allCompleted
+        ? 'completed'
+        : form.status === 'completed' && subtasks.length > 0
+          ? 'in_progress'
+          : form.status
 
       await updateTask(task.id, {
         activity: form.activity,
@@ -66,12 +72,13 @@ export default function TaskDetail({ task, onClose }) {
         department_id: departmentId,
         owner_id: ownerId || null,
         dependency: form.dependency || null,
-        status: form.status,
+        status,
         priority: form.priority || 'medium',
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         subtask: subtasks.map(subtask => subtask.title.trim()).join('\n') || null,
         subtask_dependency: subtasks.map(subtask => subtask.dependency).join('\n') || null,
+        subtask_completed: subtasks.map(subtask => Boolean(subtask.completed)),
       })
       showToast('Task updated')
       onClose()
@@ -180,7 +187,8 @@ export default function TaskDetail({ task, onClose }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Subtasks</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 74px', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 220px 74px', gap: 8, alignItems: 'center' }}>
+            <span style={subtaskHeaderStyle}>Done</span>
             <span style={subtaskHeaderStyle}>Subtask</span>
             <span style={subtaskHeaderStyle}>Dependency</span>
             <span />
@@ -241,20 +249,23 @@ function Field({ label, children }) {
   )
 }
 
-function parseSubtasks(subtaskValue, dependencyValue) {
+function parseSubtasks(subtaskValue, dependencyValue, completedValue) {
   const subtasks = String(subtaskValue ?? '').split('\n')
   const dependencies = String(dependencyValue ?? '').split('\n')
   const length = Math.max(subtasks.length, dependencies.length, 1)
+  const completed = parseCompleted(completedValue, length)
 
   return Array.from({ length }, (_, index) => ({
     title: subtasks[index] ?? '',
     dependency: dependencies[index] ?? '',
+    completed: completed[index],
   }))
 }
 
 function SubtaskRow({ subtask, departments, canRemove, onChange, onRemove }) {
   return (
     <>
+      <input type="checkbox" checked={Boolean(subtask.completed)} onChange={e => onChange('completed', e.target.checked)} style={checkboxStyle} />
       <input type="text" value={subtask.title} onChange={e => onChange('title', e.target.value)} style={inputStyle} />
       <select value={subtask.dependency} onChange={e => onChange('dependency', e.target.value)} style={inputStyle}>
         <option value="">-- Select department --</option>
@@ -263,6 +274,26 @@ function SubtaskRow({ subtask, departments, canRemove, onChange, onRemove }) {
       <Button variant="ghost" size="sm" type="button" onClick={onRemove} disabled={!canRemove}>Remove</Button>
     </>
   )
+}
+
+function parseCompleted(value, count) {
+  if (Array.isArray(value)) {
+    return Array.from({ length: count }, (_, index) => Boolean(value[index]))
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    if (normalized.startsWith('{') && normalized.endsWith('}')) {
+      const items = normalized.slice(1, -1).split(',')
+      return Array.from({ length: count }, (_, index) => ['true', 't', '1'].includes(String(items[index] ?? '').trim().toLowerCase()))
+    }
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) return parseCompleted(parsed, count)
+    } catch {
+      return Array.from({ length: count }, () => false)
+    }
+  }
+  return Array.from({ length: count }, () => false)
 }
 
 const inputStyle = {
@@ -280,4 +311,11 @@ const subtaskHeaderStyle = {
   fontWeight: 700,
   color: 'var(--text-muted)',
   textTransform: 'uppercase',
+}
+
+const checkboxStyle = {
+  width: 16,
+  height: 16,
+  justifySelf: 'center',
+  accentColor: '#0f766e',
 }

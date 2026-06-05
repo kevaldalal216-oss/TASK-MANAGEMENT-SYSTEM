@@ -30,7 +30,7 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
       activity: '', project_name: '', responsibility: '',
       department_id: '', owner_id: '', dependency: '',
       status: 'not_started', priority: 'medium', start_date: today(), end_date: '',
-      subtasks: [{ title: '', dependency: '' }],
+      subtasks: [{ title: '', dependency: '', completed: false }],
     }
   }
 
@@ -48,14 +48,14 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
   }
 
   function addSubtask() {
-    setForm(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: '', dependency: '' }] }))
+    setForm(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: '', dependency: '', completed: false }] }))
   }
 
   function removeSubtask(index) {
     setForm(prev => ({
       ...prev,
       subtasks: prev.subtasks.length === 1
-        ? [{ title: '', dependency: '' }]
+        ? [{ title: '', dependency: '', completed: false }]
         : prev.subtasks.filter((_, i) => i !== index),
     }))
   }
@@ -74,10 +74,11 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
         ? (form.department_id ? Number(form.department_id) : (currentDepartmentId ? Number(currentDepartmentId) : null))
         : (currentDepartmentId ? Number(currentDepartmentId) : null)
       const responsibility = isAdmin ? form.responsibility : currentUserName
+      const allCompleted = subtasks.length > 0 && subtasks.every(subtask => subtask.completed)
 
       await createTask({
         activity: form.activity,
-        status: form.status,
+        status: allCompleted ? 'completed' : form.status,
         priority: form.priority,
         department_id: departmentId,
         owner_id: ownerId || null,
@@ -88,6 +89,7 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
         responsibility: responsibility || null,
         subtask: subtasks.map(subtask => subtask.title.trim()).join('\n') || null,
         subtask_dependency: subtasks.map(subtask => subtask.dependency).join('\n') || null,
+        subtask_completed: subtasks.map(subtask => Boolean(subtask.completed)),
       })
       showToast('Task created successfully')
       setForm(emptyForm())
@@ -177,7 +179,8 @@ export default function TaskModal({ isOpen, onClose, mode = 'add' }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Subtasks</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 74px', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 220px 74px', gap: 8, alignItems: 'center' }}>
+            <span style={subtaskHeaderStyle}>Done</span>
             <span style={subtaskHeaderStyle}>Subtask</span>
             <span style={subtaskHeaderStyle}>Dependency</span>
             <span />
@@ -220,6 +223,7 @@ function Field({ label, required, children }) {
 function SubtaskRow({ subtask, departments, canRemove, onChange, onRemove }) {
   return (
     <>
+      <input type="checkbox" checked={Boolean(subtask.completed)} onChange={e => onChange('completed', e.target.checked)} style={checkboxStyle} />
       <input type="text" value={subtask.title} onChange={e => onChange('title', e.target.value)} style={inputStyle} />
       <select value={subtask.dependency} onChange={e => onChange('dependency', e.target.value)} style={inputStyle}>
         <option value="">-- Select department --</option>
@@ -245,4 +249,11 @@ const subtaskHeaderStyle = {
   fontWeight: 700,
   color: 'var(--text-muted)',
   textTransform: 'uppercase',
+}
+
+const checkboxStyle = {
+  width: 16,
+  height: 16,
+  justifySelf: 'center',
+  accentColor: '#0f766e',
 }
