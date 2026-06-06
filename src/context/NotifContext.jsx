@@ -4,6 +4,15 @@ import { useAuth } from './AuthContext'
 
 const NotifContext = createContext(null)
 
+function normalizeNotification(notification) {
+  return {
+    ...notification,
+    user_id: notification.user_id ?? notification.userId,
+    is_read: Boolean(notification.is_read ?? notification.isRead ?? notification.read),
+    created_at: notification.created_at ?? notification.createdAt,
+  }
+}
+
 export function NotifProvider({ children }) {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState([])
@@ -19,8 +28,9 @@ export function NotifProvider({ children }) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       if (!error) {
-        setNotifications(data)
-        setUnreadCount(data.filter(n => !n.read).length)
+        const normalized = data.map(normalizeNotification)
+        setNotifications(normalized)
+        setUnreadCount(normalized.filter(n => !n.is_read).length)
       }
     }
 
@@ -32,7 +42,7 @@ export function NotifProvider({ children }) {
         event: 'INSERT', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        setNotifications(prev => [payload.new, ...prev])
+        setNotifications(prev => [normalizeNotification(payload.new), ...prev])
         setUnreadCount(c => c + 1)
       })
       .subscribe()
@@ -44,22 +54,23 @@ export function NotifProvider({ children }) {
     if (!user) return
     const { error } = await supabase
       .from('notifications')
-      .update({ read: true })
+      .update({ is_read: true })
       .eq('user_id', user.id)
     if (!error) {
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
       setUnreadCount(0)
     }
   }
 
   async function markOneRead(id) {
+    const notification = notifications.find(n => n.id === id)
     const { error } = await supabase
       .from('notifications')
-      .update({ read: true })
+      .update({ is_read: true })
       .eq('id', id)
     if (!error) {
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-      setUnreadCount(c => Math.max(0, c - 1))
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+      if (!notification?.is_read) setUnreadCount(c => Math.max(0, c - 1))
     }
   }
 

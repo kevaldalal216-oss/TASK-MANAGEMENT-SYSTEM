@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+import { notifyTaskAssigned, notifyTaskCreated } from '../lib/taskNotifications'
 
 const TaskContext = createContext(null)
 const adminRoles = ['super_admin', 'admin']
@@ -218,10 +219,16 @@ export function TaskProvider({ children }) {
       .single()
     if (error) throw error
     setTasks(prev => sortByTaskNumber(prev.some(t => t.id === inserted.id) ? prev : [...prev, inserted]))
+    const actor = profiles.find(p => p.id === user.id) ?? profile ?? user
+    await Promise.allSettled([
+      notifyTaskCreated({ task: inserted, profiles, departments, actor }),
+      notifyTaskAssigned({ task: inserted, profiles, actor }),
+    ])
     return inserted
   }
 
   async function updateTask(id, data) {
+    const previous = tasks.find(task => task.id === id)
     const { data: updated, error } = await supabase
       .from('tasks')
       .update(data)
@@ -230,6 +237,10 @@ export function TaskProvider({ children }) {
       .single()
     if (error) throw error
     setTasks(prev => prev.map(t => t.id === id ? updated : t))
+    if (data.owner_id && data.owner_id !== previous?.owner_id) {
+      const actor = profiles.find(p => p.id === user.id) ?? profile ?? user
+      await notifyTaskAssigned({ task: updated, profiles, actor })
+    }
     return updated
   }
 

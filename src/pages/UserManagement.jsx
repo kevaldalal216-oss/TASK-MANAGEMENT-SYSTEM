@@ -342,6 +342,7 @@ function UserModal({ mode, user, departments, myRole, onClose }) {
         const { error: profileErr } = await supabase.from('profiles').insert({
           id: uid,
           full_name: form.full_name,
+          email: form.email,
           role: form.role,
           department_id: form.department_id ? Number(form.department_id) : null,
           status: form.status,

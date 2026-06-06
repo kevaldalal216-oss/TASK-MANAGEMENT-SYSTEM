@@ -1,9 +1,12 @@
 import { Bell, CheckCheck, Plus, Edit, Trash2, UserPlus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useNotif } from '../context/NotifContext'
 import Topbar from '../components/Layout/Topbar'
 import Button from '../components/common/Button'
 
 const TYPE_META = {
+  creation:      { Icon: Plus,     color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0' },
+  assignment:    { Icon: UserPlus, color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
   task_created:  { Icon: Plus,     color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0' },
   task_updated:  { Icon: Edit,     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
   task_assigned: { Icon: UserPlus, color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
@@ -34,7 +37,14 @@ function relativeTime(ts) {
 
 export default function Notifications() {
   const { notifications, markAllRead, markOneRead } = useNotif()
-  const unread = notifications.filter(n => !n.read).length
+  const navigate = useNavigate()
+  const unread = notifications.filter(n => !n.is_read).length
+
+  async function openNotification(notification) {
+    if (!notification.is_read) await markOneRead(notification.id)
+    const target = notification.link || (notification.task_id ? `/tasks?task_id=${notification.task_id}` : null)
+    if (target) navigate(target)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -112,20 +122,20 @@ export default function Notifications() {
               return (
                 <div
                   key={n.id}
-                  onClick={() => !n.read && markOneRead(n.id)}
+                  onClick={() => openNotification(n)}
                   className="fade-in-up"
                   style={{
                     display: 'flex', alignItems: 'flex-start', gap: 14,
                     padding: '16px 24px',
                     borderTop: i === 0 ? 'none' : '1px solid var(--outline-variant)',
-                    borderLeft: n.read ? '3px solid transparent' : `3px solid ${m.color}`,
-                    background: n.read ? '#fff' : `${m.bg}40`,
-                    cursor: n.read ? 'default' : 'pointer',
+                    borderLeft: n.is_read ? '3px solid transparent' : `3px solid ${m.color}`,
+                    background: n.is_read ? '#fff' : `${m.bg}40`,
+                    cursor: n.link || n.task_id || !n.is_read ? 'pointer' : 'default',
                     transition: 'background 0.15s',
                     animationDelay: `${Math.min(i * 30, 600)}ms`,
                   }}
-                  onMouseEnter={e => { if (!n.read) e.currentTarget.style.background = `${m.bg}80` }}
-                  onMouseLeave={e => { if (!n.read) e.currentTarget.style.background = `${m.bg}40` }}
+                  onMouseEnter={e => { if (!n.is_read) e.currentTarget.style.background = `${m.bg}80` }}
+                  onMouseLeave={e => { if (!n.is_read) e.currentTarget.style.background = `${m.bg}40` }}
                 >
                   <div style={{
                     width: 36, height: 36, borderRadius: 'var(--radius-button)',
@@ -140,12 +150,12 @@ export default function Notifications() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       <span style={{
-                        fontSize: 14, fontWeight: n.read ? 500 : 700,
+                        fontSize: 14, fontWeight: n.is_read ? 500 : 700,
                         color: 'var(--on-surface)',
                       }}>
                         {n.title}
                       </span>
-                      {!n.read && (
+                      {!n.is_read && (
                         <span style={{
                           width: 6, height: 6,
                           borderRadius: '50%',

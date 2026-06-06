@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, X, Search } from 'lucide-react'
 import { useTasks } from '../context/TaskContext'
@@ -92,6 +92,7 @@ export default function TaskList() {
   const [createMode, setCreateMode] = useState('add')
   const [taskOverrides, setTaskOverrides] = useState({})
   const isAdmin = role === 'admin' || role === 'super_admin'
+  const notificationTaskId = searchParams.get('task_id')
 
   const teamDependencies = useMemo(() => {
     const currentDepartment = departments.find(department => Number(department.id) === Number(profile?.department_id))
@@ -144,6 +145,12 @@ export default function TaskList() {
       return sort.dir === 'asc' ? cmp : -cmp
     })
   }, [tasks, teamDependencies, tab, search, filterDept, filterStatus, filterPriority, filterOwner, sort, user, profile, profiles, departments, searchParams])
+
+  useEffect(() => {
+    if (!notificationTaskId || loading) return
+    const task = tasks.find(item => String(item.id) === String(notificationTaskId))
+    if (task) setSelectedTask(task)
+  }, [notificationTaskId, loading, tasks])
 
   function toggleSort(col) {
     if (COLUMNS.find(column => column.key === col)?.sortable === false) return
