@@ -1,7 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuth } from './AuthContext'
-import { notifyTaskAssigned, notifyTaskCreated } from '../lib/taskNotifications'
+import {
+  notifyTaskCreated,
+  notifyTaskAssigned,
+  notifyTaskUpdated,
+  notifyTaskDeleted,
+} from '../lib/notificationService'
 
 const TaskContext = createContext(null)
 const adminRoles = ['super_admin', 'admin']
@@ -237,10 +242,50 @@ export function TaskProvider({ children }) {
       .single()
     if (error) throw error
     setTasks(prev => prev.map(t => t.id === id ? updated : t))
-    if (data.owner_id && data.owner_id !== previous?.owner_id) {
-      const actor = profiles.find(p => p.id === user.id) ?? profile ?? user
-      await notifyTaskAssigned({ task: updated, profiles, actor })
+
+    const actor = profiles.find(p => p.id === user.id) ?? profile ?? user
+    const notifTriggers = []
+
+    // Assignment change
+    if (data.owner_id !== undefined && data.owner_id !== previous?.owner_id) {
+      notifTriggers.push(notifyTaskAssigned({ task: updated, profiles, actor }))
     }
+
+    // Detect other significant changes (only fire one update notification per save)
+    const statusChanged   = data.status     !== undefined && data.status     !== previous?.status
+    const dueDateChanged  = data.end_date   !== undefined && data.end_date   !== previous?.end_date
+    const priorityChanged = data.priority   !== undefined && data.priority   !== previous?.priority
+    const subtaskTextChanged = data.subtask !== undefined && data.subtask    !== previous?.subtask
+    const subtaskCompletedChanged = data.subtask_completed !== undefined
+      && JSON.stringify(data.subtask_completed) !== JSON.stringify(previous?.subtask_completed)
+
+    let updateType = null
+
+    if (statusChanged && data.status === 'completed') {
+      updateType = 'completion'
+    } else if (statusChanged) {
+      updateType = 'status_changed'
+    } else if (dueDateChanged) {
+      updateType = 'due_date_changed'
+    } else if (priorityChanged) {
+      updateType = 'priority_changed'
+    } else if (subtaskTextChanged) {
+      const prevCount = (previous?.subtask ?? '').split('\n').filter(Boolean).length
+      const newCount  = (data.subtask  ?? '').split('\n').filter(Boolean).length
+      updateType = newCount > prevCount ? 'subtask_created'
+        : newCount < prevCount ? 'subtask_deleted'
+        : 'subtask_updated'
+    } else if (subtaskCompletedChanged) {
+      updateType = 'subtask_completed'
+    }
+
+    if (updateType) {
+      notifTriggers.push(
+        notifyTaskUpdated({ task: updated, oldTask: previous, updateType, actor, profiles, departments })
+      )
+    }
+
+    await Promise.allSettled(notifTriggers)
     return updated
   }
 
@@ -269,7 +314,12 @@ export function TaskProvider({ children }) {
     const { error } = await supabase.from('tasks').delete().eq('id', task.id)
     if (error) throw error
     setTasks(prev => sortByTaskNumber(prev.filter(t => t.id !== task.id)))
-    await renumberTasks()
+
+    const actor = profiles.find(p => p.id === user.id) ?? profile ?? user
+    await Promise.allSettled([
+      notifyTaskDeleted({ task, actor, profiles, departments }),
+      renumberTasks(),
+    ])
   }
 
   async function createDepartment(data) {

@@ -42,8 +42,25 @@ export function NotifProvider({ children }) {
         event: 'INSERT', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        setNotifications(prev => [normalizeNotification(payload.new), ...prev])
+        const notif = normalizeNotification(payload.new)
+        setNotifications(prev => {
+          if (prev.some(n => n.id === notif.id)) return prev
+          return [notif, ...prev]
+        })
         setUnreadCount(c => c + 1)
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        const updated = normalizeNotification(payload.new)
+        setNotifications(prev => prev.map(n => n.id === updated.id ? updated : n))
+        setUnreadCount(prev => {
+          const wasUnread = !normalizeNotification(payload.old ?? {}).is_read
+          const isNowRead = updated.is_read
+          if (wasUnread && isNowRead) return Math.max(0, prev - 1)
+          return prev
+        })
       })
       .subscribe()
 
