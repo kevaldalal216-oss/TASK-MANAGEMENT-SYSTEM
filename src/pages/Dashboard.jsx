@@ -135,19 +135,23 @@ export default function Dashboard() {
     departments
       .filter(d => !heatmapDepartment || String(d.id) === heatmapDepartment)
       .map(department => {
-        const count = tasks.filter(t =>
-          t.status === 'in_progress'
-          && t.department_id === department.id
+        const deptTasks = tasks.filter(t =>
+          t.department_id === department.id
           && (!heatmapEmployee || t.owner_id === heatmapEmployee)
+        )
+        const count = deptTasks.filter(t => t.status === 'in_progress').length
+        const overdueCount = deptTasks.filter(t =>
+          t.end_date && t.end_date < today && t.status !== 'completed'
         ).length
 
         return {
           ...department,
           count,
+          overdueCount,
           tone: count >= 12 ? 'high' : count >= 8 ? 'medium' : 'low',
         }
       }),
-    [departments, tasks, heatmapDepartment, heatmapEmployee]
+    [departments, tasks, heatmapDepartment, heatmapEmployee, today]
   )
 
   const overdueRows = useMemo(() =>
@@ -176,6 +180,16 @@ export default function Dashboard() {
     const params = new URLSearchParams({
       tab: isAdmin ? 'all' : 'dept',
       status: 'in_progress',
+      department_id: String(departmentId),
+    })
+    if (heatmapEmployee) params.set('owner_id', heatmapEmployee)
+    navigate(`/tasks?${params.toString()}`)
+  }
+
+  function openHeatmapOverdue(departmentId) {
+    const params = new URLSearchParams({
+      tab: isAdmin ? 'all' : 'dept',
+      overdue: '1',
       department_id: String(departmentId),
     })
     if (heatmapEmployee) params.set('owner_id', heatmapEmployee)
@@ -418,11 +432,12 @@ export default function Dashboard() {
           flexWrap: 'wrap',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <h3 style={{ ...sectionTitle, marginBottom: 0 }}>In-Progress Tasks by Department - Click to filter</h3>
+            <h3 style={{ ...sectionTitle, marginBottom: 0 }}>Tasks by Department — Click tile for In Progress, badge for Overdue</h3>
             <div style={heatmapLegendStyle}>
               <span style={legendDotStyle('#22c55e')} /> &lt;=7 In Progress
-              <span style={legendDotStyle('#f97316')} /> 7-12
+              <span style={legendDotStyle('#f97316')} /> 7–12
               <span style={legendDotStyle('#e11d48')} /> 12+
+              <span style={{ marginLeft: 4, padding: '1px 6px', background: 'rgba(239,68,68,0.12)', color: '#b91c1c', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 999, fontSize: 10, fontWeight: 700 }}>⚠ N overdue</span>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -449,28 +464,47 @@ export default function Dashboard() {
         </div>
         <div style={heatmapGridStyle}>
           {heatmapRows.map(row => (
-            <button
+            <div
               key={row.id}
-              type="button"
-              title={`${row.name} - ${row.count} In Progress task${row.count !== 1 ? 's' : ''}`}
-              onClick={() => openHeatmapTasks(row.id)}
               style={{
                 ...heatmapTileStyle,
                 ...heatmapToneStyles[row.tone],
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-card-hover)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
+                position: 'relative',
               }}
             >
-              <span style={heatmapDeptNameStyle}>{row.name}</span>
-              <strong style={heatmapCountStyle}>{row.count}</strong>
-              <span style={heatmapLabelStyle}>In Progress</span>
-            </button>
+              <button
+                type="button"
+                title={`${row.name} — ${row.count} In Progress`}
+                onClick={() => openHeatmapTasks(row.id)}
+                onMouseEnter={e => {
+                  e.currentTarget.parentElement.style.transform = 'translateY(-2px)'
+                  e.currentTarget.parentElement.style.boxShadow = 'var(--shadow-card-hover)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.parentElement.style.transform = 'translateY(0)'
+                  e.currentTarget.parentElement.style.boxShadow = 'none'
+                }}
+                style={{
+                  all: 'unset',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 4, cursor: 'pointer', width: '100%',
+                }}
+              >
+                <span style={heatmapDeptNameStyle}>{row.name}</span>
+                <strong style={heatmapCountStyle}>{row.count}</strong>
+                <span style={heatmapLabelStyle}>In Progress</span>
+              </button>
+              {row.overdueCount > 0 && (
+                <button
+                  type="button"
+                  title={`${row.overdueCount} overdue task${row.overdueCount !== 1 ? 's' : ''} in ${row.name}`}
+                  onClick={e => { e.stopPropagation(); openHeatmapOverdue(row.id) }}
+                  style={heatmapOverdueBadgeStyle}
+                >
+                  ⚠ {row.overdueCount} overdue
+                </button>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -638,14 +672,27 @@ const heatmapTileStyle = {
   minHeight: 82,
   border: 'none',
   borderRadius: 6,
-  padding: '12px 14px',
+  padding: '12px 14px 10px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   gap: 5,
-  cursor: 'pointer',
   transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+}
+
+const heatmapOverdueBadgeStyle = {
+  marginTop: 6,
+  padding: '2px 8px',
+  background: 'rgba(239,68,68,0.15)',
+  color: '#b91c1c',
+  border: '1px solid rgba(239,68,68,0.35)',
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 700,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  letterSpacing: '0.01em',
 }
 const heatmapToneStyles = {
   low: {
