@@ -4,13 +4,13 @@
  * Role-Based & Dependency-Aware Notification System
  *
  * Recipient resolution rules per event type:
- *   creation      → Super Admins, Dept Admin, All Dept Members
- *   assignment    → Super Admins, Dept Admin, Assigned User
- *   update        → Super Admins, Dept Admin, All Dept Members,
- *                   + Dependent-team Admins & Members (→ 'dependency' type notif)
+ *   ALL events    → ALL Admins (admin + super_admin, every department) — ALWAYS
+ *   creation      → + All Dept Members
+ *   assignment    → + Assigned User
+ *   update        → + All Dept Members + Dependent-team Members (→ 'dependency' notif)
  *   subtask_update→ same as update
  *   completion    → same as update
- *   deletion      → Super Admins, Dept Admin, All Dept Members
+ *   deletion      → + All Dept Members
  */
 
 import { supabase } from './supabase'
@@ -108,12 +108,13 @@ async function insertNotificationsBatch(rows) {
 
 // ── Recipient fetchers ────────────────────────────────────────────────────────
 
-async function fetchSuperAdmins() {
+// All admin-role users (admin + super_admin) — always receive every notification
+async function fetchAllAdmins() {
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, email, role, department_id')
-    .eq('role', 'super_admin')
-  if (error) { console.warn('[notif] fetchSuperAdmins:', error.message); return [] }
+    .in('role', ['admin', 'super_admin'])
+  if (error) { console.warn('[notif] fetchAllAdmins:', error.message); return [] }
   return data ?? []
 }
 
@@ -184,13 +185,13 @@ async function findDeptByName(name, localDepts = []) {
  *   depTeamUserIds  Set<userId>           — subset from dependent teams
  *
  * Event types:
- *   'creation'       → super_admins + dept admin + all dept members
- *   'assignment'     → super_admins + dept admin + assignee
- *   'update'         → super_admins + dept admin + all dept members
- *                      + dependent-team admin & members (marked in depTeamUserIds)
+ *   ALL events       → ALL admins (admin + super_admin, every dept)
+ *   'creation'       → + all dept members
+ *   'assignment'     → + assignee
+ *   'update'         → + all dept members + dependent-team members (depTeamUserIds)
  *   'subtask_update' → same as update
  *   'completion'     → same as update
- *   'deletion'       → super_admins + dept admin + all dept members
+ *   'deletion'       → + all dept members
  */
 async function resolveRecipients(task, eventType, options = {}) {
   const {
@@ -205,13 +206,19 @@ async function resolveRecipients(task, eventType, options = {}) {
   function addUsers(users, fromDepTeam = false) {
     for (const u of (users ?? [])) {
       if (!u?.id) continue
+      const alreadyPrimary = recipientMap.has(u.id) && !depTeamUserIds.has(u.id)
       recipientMap.set(u.id, u)
-      if (fromDepTeam) depTeamUserIds.add(u.id)
+      // Only tag as dep-team if not already present as a primary (non-dep) recipient.
+      // This prevents admins fetched globally in step 1 from being reclassified as
+      // dependency recipients when they also happen to be in a dependent dept.
+      if (fromDepTeam && !alreadyPrimary) {
+        depTeamUserIds.add(u.id)
+      }
     }
   }
 
-  // 1. Super admins — always included
-  addUsers(await fetchSuperAdmins())
+  // 1. ALL admins (admin + super_admin, every department) — always included
+  addUsers(await fetchAllAdmins())
 
   // 2. Determine department IDs to fetch
   const taskDeptId = task.department_id != null ? Number(task.department_id) : null
