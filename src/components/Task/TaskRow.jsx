@@ -44,6 +44,7 @@ function projectName(task) {
 export default function TaskRow({ task, profiles = [], onClick, index, taskNumber, onToggleSubtask }) {
   const project = projectName(task)
   const subtasks = splitLines(task.subtask)
+  const subtaskDependencies = splitLines(task.subtask_dependency)
   const completedSubtasks = parseSubtaskCompletion(task.subtask_completed, subtasks.length)
   const progress = taskProgress(task)
   const assignedBy = profiles.find(profile => profile.id === task.created_by)
@@ -177,7 +178,11 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
           </td>
           <td style={subtaskBlankTdStyle} />
           <td style={subtaskBlankTdStyle} />
-          <td style={subtaskBlankTdStyle} />
+          <td style={subtaskBlankTdStyle}>
+            {subtaskDependencies[subtaskIndex]
+              ? <span style={subtaskDependencyBadgeStyle}>{subtaskDependencies[subtaskIndex]}</span>
+              : null}
+          </td>
         </tr>
       ))}
     </>
@@ -396,6 +401,18 @@ const departmentBadgeStyle = {
   borderRadius: 4,
   fontSize: 11,
   fontWeight: 600,
+}
+
+const subtaskDependencyBadgeStyle = {
+  display: 'inline-block',
+  padding: '2px 7px',
+  background: '#eff6ff',
+  color: '#1d4ed8',
+  border: '1px solid #bfdbfe',
+  borderRadius: 'var(--radius-badge)',
+  fontSize: 11,
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
 }
 
 const subtaskToggleStyle = {
