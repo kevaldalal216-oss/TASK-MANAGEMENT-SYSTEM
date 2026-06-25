@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import StatusBadge from '../common/StatusBadge'
 
 export function parseSubtaskCompletion(value, count) {
@@ -45,6 +47,7 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
   const completedSubtasks = parseSubtaskCompletion(task.subtask_completed, subtasks.length)
   const progress = taskProgress(task)
   const assignedBy = profiles.find(profile => profile.id === task.created_by)
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <>
@@ -53,7 +56,7 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
         className="fade-in-up"
         style={{
           cursor: 'pointer',
-          borderBottom: subtasks.length ? 'none' : '1px solid var(--outline-variant)',
+          borderBottom: (subtasks.length && expanded) ? 'none' : '1px solid var(--outline-variant)',
           background: '#fff',
           animationDelay: `${Math.min(index * 30, 600)}ms`,
           transition: 'background 0.15s',
@@ -82,7 +85,23 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
           {task.activity}
         </td>
         <td style={subtaskParentTdStyle}>
-          <span style={{ color: 'var(--text-muted)' }}>-</span>
+          {subtasks.length > 0 ? (
+            <button
+              onClick={e => { e.stopPropagation(); setExpanded(prev => !prev) }}
+              style={subtaskToggleStyle}
+            >
+              {expanded
+                ? <ChevronDown size={13} style={{ flexShrink: 0 }} />
+                : <ChevronRight size={13} style={{ flexShrink: 0 }} />
+              }
+              <span>{subtasks.length} subtask{subtasks.length !== 1 ? 's' : ''}</span>
+              <span style={subtaskCountBadgeStyle}>
+                {completedSubtasks.filter(Boolean).length}/{subtasks.length}
+              </span>
+            </button>
+          ) : (
+            <span style={{ color: 'var(--text-muted)' }}>-</span>
+          )}
         </td>
         <td style={tdStyle}><PriorityBadge priority={task.priority} /></td>
         <td style={dateTdStyle}>
@@ -115,7 +134,7 @@ export default function TaskRow({ task, profiles = [], onClick, index, taskNumbe
         </td>
       </tr>
 
-      {subtasks.map((subtask, subtaskIndex) => (
+      {expanded && subtasks.map((subtask, subtaskIndex) => (
         <tr
           key={`${task.id}-subtask-${subtaskIndex}`}
           onClick={() => onClick(task)}
@@ -377,4 +396,29 @@ const departmentBadgeStyle = {
   borderRadius: 4,
   fontSize: 11,
   fontWeight: 600,
+}
+
+const subtaskToggleStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  padding: '4px 10px',
+  fontSize: 12,
+  fontWeight: 600,
+  color: 'var(--primary)',
+  background: 'var(--surface-container-low)',
+  border: '1px solid var(--outline-variant)',
+  borderRadius: 'var(--radius-badge)',
+  cursor: 'pointer',
+  transition: 'background 0.15s',
+}
+
+const subtaskCountBadgeStyle = {
+  marginLeft: 2,
+  padding: '1px 5px',
+  background: 'var(--surface-container-high)',
+  color: 'var(--text-muted)',
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 700,
 }
